@@ -32,6 +32,7 @@ import {
   SubmissionDetailPage,
   HackathonSubmissionsPage
 } from './pages/submissions';
+import { LeaderboardPage } from './pages/leaderboard';
 
 function App() {
   return (
@@ -78,6 +79,9 @@ function App() {
           {/* Evaluations */}
           <Route path="/hackathons/:hackathonId/evaluate" element={<EvaluationPage />} />
           <Route path="/hackathons/:hackathonId/criteria" element={<CriteriaManagementPage />} />
+          
+          {/* Leaderboard */}
+          <Route path="/hackathons/:hackathonId/leaderboard" element={<LeaderboardPage />} />
           
           {/* Submissions */}
           <Route path="/my/submissions" element={<MySubmissionsPage />} />

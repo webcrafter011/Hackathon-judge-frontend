@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { 
   Search, 
@@ -25,6 +25,9 @@ import { Card, CardContent } from '../../components/ui';
 import { getHackathons, getStatusConfig, HACKATHON_STATUS } from '../../services/hackathonService';
 import { formatDate, cn, debounce } from '../../lib/utils';
 import useAuthStore from '../../store/authStore';
+
+// Roles that can view archived hackathons
+const PRIVILEGED_ROLES = ['admin', 'organizer', 'judge'];
 
 function HackathonCard({ hackathon }) {
   const statusConfig = getStatusConfig(hackathon.status);
@@ -154,7 +157,13 @@ function HackathonCard({ hackathon }) {
 
 function HackathonsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
+  
+  // Check if user is privileged (can see archived hackathons)
+  const canViewArchived = useMemo(() => {
+    if (!user) return false;
+    return PRIVILEGED_ROLES.includes(user.role);
+  }, [user]);
   
   const [hackathons, setHackathons] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
@@ -188,14 +197,35 @@ function HackathonsPage() {
       if (filters.tag) params.tag = filters.tag;
 
       const data = await getHackathons(params);
-      setHackathons(data.hackathons || []);
-      setPagination(data.pagination || { page: 1, pages: 1, total: 0 });
+      
+      // Filter out archived hackathons for participants
+      // Only privileged roles (admin, organizer, judge) can see archived hackathons
+      let filteredHackathons = data.hackathons || [];
+      if (!canViewArchived) {
+        filteredHackathons = filteredHackathons.filter(h => h.status !== 'archived');
+      }
+      
+      setHackathons(filteredHackathons);
+      
+      // Adjust pagination total if we filtered
+      const filteredCount = filteredHackathons.length;
+      const originalPagination = data.pagination || { page: 1, pages: 1, total: 0 };
+      if (!canViewArchived && filteredCount !== (data.hackathons || []).length) {
+        // Rough adjustment - backend should ideally filter this
+        const archivedCount = (data.hackathons || []).length - filteredCount;
+        setPagination({
+          ...originalPagination,
+          total: Math.max(0, originalPagination.total - archivedCount)
+        });
+      } else {
+        setPagination(originalPagination);
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load hackathons');
     } finally {
       setIsLoading(false);
     }
-  }, [filters.page, filters.status, filters.visibility, filters.search, filters.tag]);
+  }, [filters.page, filters.status, filters.visibility, filters.search, filters.tag, canViewArchived]);
 
   useEffect(() => {
     fetchHackathons();
@@ -292,6 +322,7 @@ function HackathonsPage() {
                   <option value="open">Open</option>
                   <option value="running">Running</option>
                   <option value="closed">Closed</option>
+                  {canViewArchived && <option value="archived">Archived</option>}
                 </Select>
               </div>
               <div>

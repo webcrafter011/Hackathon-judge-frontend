@@ -193,7 +193,7 @@ const useAuthStore = create((set, get) => ({
   acceptInvite: async ({ token, name, password }) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.post('/users/invite', { token, name, password });
+      const response = await api.post('/users/invite/accept', { token, name, password });
       const { user, token: authToken } = response.data;
       
       tokenStorage.setToken(authToken);

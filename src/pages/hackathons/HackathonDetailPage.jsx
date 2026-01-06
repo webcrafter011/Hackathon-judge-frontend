@@ -20,7 +20,9 @@ import {
   Send,
   Loader2,
   BarChart3,
-  Trash2
+  Trash2,
+  ToggleLeft,
+  ToggleRight
 } from 'lucide-react';
 import { 
   Button, 
@@ -31,7 +33,7 @@ import {
   Textarea
 } from '../../components/ui';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui';
-import { getHackathonById, getStatusConfig, getHackathonTeams, deleteHackathon } from '../../services/hackathonService';
+import { getHackathonById, getStatusConfig, getHackathonTeams, deleteHackathon, updateHackathon } from '../../services/hackathonService';
 import { requestToJoinTeam, isTeamMember } from '../../services/teamService';
 import { formatDate, formatDateTime, cn } from '../../lib/utils';
 import useAuthStore from '../../store/authStore';
@@ -47,6 +49,7 @@ function HackathonDetailPage() {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isTogglingRegistration, setIsTogglingRegistration] = useState(false);
 
   // Get user ID - auth returns 'id' not '_id'
   const userId = user?.id || user?._id;
@@ -101,6 +104,9 @@ function HackathonDetailPage() {
     fetchData();
   }, [idOrSlug]);
 
+  // Check if user can view archived hackathons (privileged roles only)
+  const canViewArchived = user?.role === 'admin' || user?.role === 'organizer' || user?.role === 'judge';
+
   if (isLoading) {
     return <LoadingScreen message="Loading hackathon details..." />;
   }
@@ -110,6 +116,17 @@ function HackathonDetailPage() {
       <ErrorState 
         title="Hackathon not found"
         description={error || "The hackathon you're looking for doesn't exist or has been removed."}
+        onRetry={() => navigate('/hackathons')}
+      />
+    );
+  }
+
+  // Block participant access to archived hackathons
+  if (hackathon.status === 'archived' && !canViewArchived) {
+    return (
+      <ErrorState 
+        title="Hackathon Archived"
+        description="This hackathon has been archived and is no longer accessible. Only organizers, judges, and administrators can view archived hackathons."
         onRetry={() => navigate('/hackathons')}
       />
     );
@@ -243,8 +260,32 @@ function HackathonDetailPage() {
         />
       </div>
 
+      {/* Leaderboard CTA - Show for closed/archived hackathons */}
+      {(hackathon.status === 'closed' || hackathon.status === 'archived') && (
+        <Card className="p-4 bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-950/20 dark:to-amber-950/20 border-yellow-200 dark:border-yellow-900/30">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                <Trophy size={20} className="text-yellow-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Results Available</h3>
+                <p className="text-sm text-muted-foreground">View the final leaderboard and winning submissions</p>
+              </div>
+            </div>
+            <Button 
+              onClick={() => navigate(`/hackathons/${hackathon._id}/leaderboard`)}
+              className="gap-2"
+            >
+              <Trophy size={18} />
+              View Leaderboard
+            </Button>
+          </div>
+        </Card>
+      )}
+
       {/* Action Buttons */}
-      {isAuthenticated && hackathon.status === 'open' && (
+      {isAuthenticated && hackathon.status === 'open' && hackathon.registration?.open !== false && (
         <Card className="p-4 bg-secondary/5 border-secondary/20">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
@@ -264,6 +305,84 @@ function HackathonDetailPage() {
                 Create Team
               </Button>
             </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Registration Closed Notice for Participants */}
+      {isAuthenticated && hackathon.status === 'open' && hackathon.registration?.open === false && !canEdit && (
+        <Card className="p-4 bg-muted/50 border-border">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center">
+              <AlertCircle size={20} className="text-warning" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">Registration Currently Closed</h3>
+              <p className="text-sm text-muted-foreground">
+                The organizer has temporarily closed team registration. Check back later or contact the organizer.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Registration Toggle - Only show for open/running hackathons */}
+      {canEdit && (hackathon.status === 'open' || hackathon.status === 'running') && (
+        <Card className="p-4 border-border">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              {hackathon.registration?.open !== false ? (
+                <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
+                  <ToggleRight size={20} className="text-success" />
+                </div>
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                  <ToggleLeft size={20} className="text-muted-foreground" />
+                </div>
+              )}
+              <div>
+                <h3 className="font-semibold text-foreground">
+                  Team Registration: {hackathon.registration?.open !== false ? 'Open' : 'Closed'}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {hackathon.registration?.open !== false 
+                    ? 'Participants can create and join teams'
+                    : 'Team creation and joining is disabled'
+                  }
+                </p>
+              </div>
+            </div>
+            <Button 
+              variant={hackathon.registration?.open !== false ? 'outline' : 'default'}
+              onClick={async () => {
+                setIsTogglingRegistration(true);
+                try {
+                  const newOpenState = hackathon.registration?.open === false;
+                  const updated = await updateHackathon(hackathon._id, {
+                    registration: {
+                      ...hackathon.registration,
+                      open: newOpenState
+                    }
+                  });
+                  setHackathon(updated.hackathon);
+                } catch (err) {
+                  alert(err.response?.data?.message || 'Failed to update registration status');
+                } finally {
+                  setIsTogglingRegistration(false);
+                }
+              }}
+              disabled={isTogglingRegistration}
+              className="gap-2"
+            >
+              {isTogglingRegistration ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : hackathon.registration?.open !== false ? (
+                <ToggleLeft size={18} />
+              ) : (
+                <ToggleRight size={18} />
+              )}
+              {hackathon.registration?.open !== false ? 'Close Registration' : 'Open Registration'}
+            </Button>
           </div>
         </Card>
       )}
@@ -298,6 +417,15 @@ function HackathonDetailPage() {
                 <FileText size={18} />
                 View Submissions
               </Button>
+              {(hackathon.status === 'closed' || hackathon.status === 'archived') && (
+                <Button 
+                  variant="outline"
+                  onClick={() => navigate(`/hackathons/${hackathon._id}/leaderboard`)}
+                >
+                  <Trophy size={18} />
+                  Leaderboard
+                </Button>
+              )}
               <Button 
                 variant="outline"
                 onClick={() => navigate(`/hackathons/${hackathon._id}/assignments`)}
@@ -345,12 +473,21 @@ function HackathonDetailPage() {
               <h3 className="font-semibold text-foreground">You're a judge for this hackathon</h3>
               <p className="text-sm text-muted-foreground">View your assigned teams and evaluations</p>
             </div>
-            <Button 
-              onClick={() => navigate('/my/evaluations')}
-            >
-              <BarChart3 size={18} />
-              My Evaluations
-            </Button>
+            <div className="flex gap-3">
+              <Button 
+                variant="outline"
+                onClick={() => navigate(`/hackathons/${hackathon._id}/leaderboard`)}
+              >
+                <Trophy size={18} />
+                Leaderboard
+              </Button>
+              <Button 
+                onClick={() => navigate('/my/evaluations')}
+              >
+                <BarChart3 size={18} />
+                My Evaluations
+              </Button>
+            </div>
           </div>
         </Card>
       )}

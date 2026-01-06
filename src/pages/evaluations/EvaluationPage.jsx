@@ -37,6 +37,22 @@ import { getHackathonById } from '../../services/hackathonService';
 import { formatDate, cn } from '../../lib/utils';
 import useAuthStore from '../../store/authStore';
 
+// Helper to safely get team name from submission
+const getTeamName = (submission) => {
+  if (!submission) return 'Unknown Team';
+  // teamId could be populated object or just an ID
+  if (submission.teamId?.name) return submission.teamId.name;
+  if (submission.team?.name) return submission.team.name;
+  if (typeof submission.teamId === 'string') return `Team ${submission.teamId.slice(-6)}`;
+  return 'Unknown Team';
+};
+
+// Helper to safely get submission title
+const getSubmissionTitle = (submission) => {
+  if (!submission) return 'Untitled Submission';
+  return submission.title || submission.name || 'Untitled Submission';
+};
+
 function EvaluationPage() {
   const { hackathonId } = useParams();
   const navigate = useNavigate();
@@ -76,8 +92,35 @@ function EvaluationPage() {
       // Fetch assigned submissions
       try {
         const submissionsData = await getAssignedSubmissions(hackathonId);
-        setSubmissions(submissionsData.submissions || []);
+        console.log('Assigned submissions response:', submissionsData);
+        
+        // API returns { submissions: [{ submission, evaluated, evaluation }], stats }
+        // We need to extract the actual submission objects and merge evaluation info
+        const subs = (submissionsData.submissions || []).map(item => {
+          // Handle nested structure: item.submission contains actual data
+          const sub = item.submission || item;
+          return {
+            ...sub,
+            // Include evaluation status from wrapper if available
+            _evaluated: item.evaluated,
+            _evaluation: item.evaluation
+          };
+        });
+        setSubmissions(subs);
+        
+        // Also populate evaluations from the response
+        const evalMap = {};
+        (submissionsData.submissions || []).forEach(item => {
+          if (item.evaluation) {
+            const subId = item.submission?._id || item._id;
+            evalMap[subId] = item.evaluation;
+          }
+        });
+        if (Object.keys(evalMap).length > 0) {
+          setEvaluations(prev => ({ ...prev, ...evalMap }));
+        }
       } catch (err) {
+        console.error('Failed to fetch assigned submissions:', err);
         setSubmissions([]);
       }
       
@@ -205,7 +248,7 @@ function EvaluationPage() {
           </h1>
           <p className="text-muted-foreground mt-1">
             {activeSubmission 
-              ? `Evaluating: ${activeSubmission.teamId?.name || 'Team Submission'}`
+              ? `Evaluating: ${getTeamName(activeSubmission)}`
               : 'Review and score assigned submissions'
             }
           </p>
@@ -255,7 +298,7 @@ function EvaluationPage() {
                 
                 return (
                   <Card 
-                    key={submission._id}
+                    key={submission._id || submission.id}
                     className="hover:shadow-md hover:border-secondary/50 transition-all cursor-pointer group"
                     onClick={() => setActiveSubmission(submission)}
                   >
@@ -267,10 +310,10 @@ function EvaluationPage() {
                           </div>
                           <div>
                             <h3 className="font-semibold text-foreground group-hover:text-secondary transition-colors">
-                              {submission.teamId?.name || 'Unknown Team'}
+                              {getTeamName(submission)}
                             </h3>
                             <p className="text-sm text-muted-foreground">
-                              {submission.title || 'Submission'}
+                              {getSubmissionTitle(submission)}
                             </p>
                             {submission.submittedAt && (
                               <p className="text-xs text-muted-foreground mt-1">
@@ -311,11 +354,11 @@ function EvaluationPage() {
               <CardContent className="space-y-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Team</p>
-                  <p className="font-medium">{activeSubmission.teamId?.name || 'Unknown Team'}</p>
+                  <p className="font-medium">{getTeamName(activeSubmission)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Title</p>
-                  <p className="font-medium">{activeSubmission.title || 'Untitled'}</p>
+                  <p className="font-medium">{getSubmissionTitle(activeSubmission)}</p>
                 </div>
                 {activeSubmission.description && (
                   <div>
@@ -343,6 +386,17 @@ function EvaluationPage() {
                   >
                     <ExternalLink size={14} />
                     View Repository
+                  </a>
+                )}
+                {activeSubmission.videoUrl && (
+                  <a 
+                    href={activeSubmission.videoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-secondary hover:underline"
+                  >
+                    <ExternalLink size={14} />
+                    View Video
                   </a>
                 )}
               </CardContent>

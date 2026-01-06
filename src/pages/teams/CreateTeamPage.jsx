@@ -118,15 +118,30 @@ function CreateTeamPage() {
   }
 
   // Check if registration is open
-  const isRegistrationOpen = hackathon.registration?.open !== false && 
-    hackathon.status !== 'completed' && 
-    hackathon.status !== 'cancelled';
+  // 1. Hackathon status must be 'open' or 'running'
+  // 2. registration.open must not be explicitly set to false
+  const isValidStatus = hackathon.status === 'open' || hackathon.status === 'running';
+  const isRegistrationEnabled = hackathon.registration?.open !== false;
+  const isRegistrationOpen = isValidStatus && isRegistrationEnabled;
 
   if (!isRegistrationOpen) {
+    let message = 'Team registration for this hackathon is currently closed.';
+    
+    if (!isValidStatus) {
+      const statusMessages = {
+        draft: 'This hackathon is not yet published.',
+        closed: 'This hackathon has ended and team registration is closed.',
+        archived: 'This hackathon has been archived.',
+      };
+      message = statusMessages[hackathon.status] || message;
+    } else if (!isRegistrationEnabled) {
+      message = 'The organizer has temporarily closed team registration for this hackathon.';
+    }
+    
     return (
       <ErrorState 
         title="Registration Closed" 
-        message="Team registration for this hackathon is currently closed."
+        message={message}
         action={() => navigate(`/hackathons/${hackathonId}`)}
         actionLabel="View Hackathon"
       />
