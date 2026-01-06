@@ -189,7 +189,7 @@ function HackathonDetailPage() {
             <img 
               src={hackathon.bannerUrl} 
               alt={hackathon.title}
-              className="w-full h-full object-cover opacity-50"
+              className="w-full h-full object-cover opacity-80"
             />
           )}
         </div>
@@ -326,8 +326,8 @@ function HackathonDetailPage() {
         </Card>
       )}
 
-      {/* Registration Toggle - Only show for open/running hackathons */}
-      {canEdit && (hackathon.status === 'open' || hackathon.status === 'running') && (
+      {/* Registration Toggle - Show for organizers/admins */}
+      {canEdit && hackathon.status !== 'closed' && (
         <Card className="p-4 border-border">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">

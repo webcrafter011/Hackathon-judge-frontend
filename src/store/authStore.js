@@ -70,6 +70,19 @@ const useAuthStore = create((set, get) => ({
         error: null 
       });
       
+      // Fetch full user profile to get avatar and other fields
+      if (user?.id) {
+        try {
+          const profileResponse = await api.get(`/users/${user.id}`);
+          const fullUser = profileResponse.data.user || profileResponse.data;
+          const mergedUser = { ...user, ...fullUser };
+          tokenStorage.setUser(mergedUser);
+          set({ user: mergedUser });
+        } catch (e) {
+          console.warn('Could not fetch full user profile:', e);
+        }
+      }
+      
       return { success: true, user };
     } catch (error) {
       const errorMessage = error.response?.data?.errors?.[0]?.msg || 
@@ -100,46 +113,50 @@ const useAuthStore = create((set, get) => ({
     }
   },
 
-  // Get current user profile
+  // Get current user profile (for fetching additional data like avatar)
+  // This does NOT logout on failure - it's just for enriching user data
   fetchCurrentUser: async () => {
     const token = tokenStorage.getToken();
-    if (!token) {
-      set({ isAuthenticated: false, user: null });
+    const currentUser = get().user;
+    if (!token || !currentUser?.id) {
       return null;
     }
 
-    set({ isLoading: true });
     try {
-      const response = await api.get('/me');
-      const user = response.data.user;
+      const response = await api.get(`/users/${currentUser.id}`);
+      const fullUser = response.data.user || response.data;
       
-      tokenStorage.setUser(user);
-      set({ user, isAuthenticated: true, isLoading: false });
+      // Merge with current user data
+      const mergedUser = { ...currentUser, ...fullUser };
+      tokenStorage.setUser(mergedUser);
+      set({ user: mergedUser });
       
-      return user;
+      return mergedUser;
     } catch (error) {
-      tokenStorage.clear();
-      set({ 
-        user: null, 
-        token: null, 
-        isAuthenticated: false, 
-        isLoading: false 
-      });
+      // Don't logout on failure - just return null
+      // The user is still authenticated, we just couldn't fetch additional profile data
+      console.warn('Could not fetch user profile:', error);
       return null;
     }
   },
 
   // Update user profile
   updateProfile: async (data) => {
+    const currentUser = get().user;
+    if (!currentUser?.id) {
+      return { success: false, error: 'No user logged in' };
+    }
+    
     set({ isLoading: true, error: null });
     try {
-      const response = await api.put('/me', data);
-      const user = response.data.user;
+      const response = await api.put(`/users/${currentUser.id}`, data);
+      const user = response.data.user || response.data;
       
-      tokenStorage.setUser(user);
-      set({ user, isLoading: false });
+      const mergedUser = { ...currentUser, ...user };
+      tokenStorage.setUser(mergedUser);
+      set({ user: mergedUser, isLoading: false });
       
-      return { success: true, user };
+      return { success: true, user: mergedUser };
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Update failed';
       set({ isLoading: false, error: errorMessage });
@@ -147,11 +164,16 @@ const useAuthStore = create((set, get) => ({
     }
   },
 
-  // Change password
+  // Change password (using updateUser endpoint)
   changePassword: async ({ currentPassword, newPassword }) => {
+    const currentUser = get().user;
+    if (!currentUser?.id) {
+      return { success: false, error: 'No user logged in' };
+    }
+    
     set({ isLoading: true, error: null });
     try {
-      await api.put('/me/password', { currentPassword, newPassword });
+      await api.put(`/users/${currentUser.id}`, { password: newPassword });
       set({ isLoading: false });
       return { success: true };
     } catch (error) {

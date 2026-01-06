@@ -33,6 +33,7 @@ import {
   HackathonSubmissionsPage
 } from './pages/submissions';
 import { LeaderboardPage } from './pages/leaderboard';
+import { ProfilePage } from './pages/profile';
 
 function App() {
   return (
@@ -88,6 +89,9 @@ function App() {
           <Route path="/submissions/:hackathonId/edit" element={<SubmissionFormPage />} />
           <Route path="/submissions/:submissionId" element={<SubmissionDetailPage />} />
           <Route path="/hackathons/:hackathonId/submissions" element={<HackathonSubmissionsPage />} />
+          
+          {/* Profile */}
+          <Route path="/profile" element={<ProfilePage />} />
         </Route>
 
         {/* Default redirect */}

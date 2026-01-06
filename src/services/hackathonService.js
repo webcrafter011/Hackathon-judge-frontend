@@ -1,9 +1,72 @@
 import api from '../lib/api';
+import { getAssetById } from './assetService';
 
 /**
  * Hackathon API Service
  * Handles all hackathon-related API calls
  */
+
+// Helper to enrich hackathon with banner URL
+const enrichWithBannerUrl = async (hackathon) => {
+  if (!hackathon) return hackathon;
+  
+  // If already has bannerUrl, return as is
+  if (hackathon.bannerUrl) return hackathon;
+  
+  // If has bannerAssetId, fetch the asset to get storageUrl
+  if (hackathon.bannerAssetId) {
+    try {
+      const assetData = await getAssetById(hackathon.bannerAssetId);
+      const asset = assetData?.asset || assetData;
+      if (asset?.storageUrl || asset?.url) {
+        return {
+          ...hackathon,
+          bannerUrl: asset.storageUrl || asset.url
+        };
+      }
+    } catch (e) {
+      // Asset might not exist or user doesn't have access
+      console.warn('Could not fetch banner asset:', e);
+    }
+  }
+  
+  return hackathon;
+};
+
+// Enrich multiple hackathons with banner URLs
+const enrichHackathonsWithBanners = async (hackathons) => {
+  if (!hackathons || !Array.isArray(hackathons)) return hackathons;
+  
+  // Get all unique bannerAssetIds
+  const assetIds = [...new Set(
+    hackathons
+      .filter(h => h.bannerAssetId && !h.bannerUrl)
+      .map(h => h.bannerAssetId)
+  )];
+  
+  if (assetIds.length === 0) return hackathons;
+  
+  // Fetch all assets in parallel
+  const assetPromises = assetIds.map(id => 
+    getAssetById(id).catch(() => null)
+  );
+  const assetResults = await Promise.all(assetPromises);
+  
+  // Create a map of assetId -> storageUrl
+  const assetUrlMap = {};
+  assetResults.forEach((result, index) => {
+    if (result) {
+      const asset = result.asset || result;
+      assetUrlMap[assetIds[index]] = asset.storageUrl || asset.url;
+    }
+  });
+  
+  // Enrich hackathons with banner URLs
+  return hackathons.map(h => ({
+    ...h,
+    bannerUrl: h.bannerUrl || assetUrlMap[h.bannerAssetId] || null
+  }));
+};
 
 // List hackathons with filters and pagination
 export const getHackathons = async (params = {}) => {
@@ -18,19 +81,40 @@ export const getHackathons = async (params = {}) => {
   if (tag) queryParams.append('tag', tag);
   
   const response = await api.get(`/hackathons?${queryParams.toString()}`);
-  return response.data;
+  const data = response.data;
+  
+  // Enrich hackathons with banner URLs
+  if (data.hackathons) {
+    data.hackathons = await enrichHackathonsWithBanners(data.hackathons);
+  }
+  
+  return data;
 };
 
 // Get single hackathon by ID
 export const getHackathonById = async (id) => {
   const response = await api.get(`/hackathons/${id}`);
-  return response.data;
+  const data = response.data;
+  
+  // Enrich hackathon with banner URL
+  if (data.hackathon) {
+    data.hackathon = await enrichWithBannerUrl(data.hackathon);
+  }
+  
+  return data;
 };
 
 // Get hackathon by slug
 export const getHackathonBySlug = async (slug) => {
   const response = await api.get(`/hackathons/${slug}`);
-  return response.data;
+  const data = response.data;
+  
+  // Enrich hackathon with banner URL
+  if (data.hackathon) {
+    data.hackathon = await enrichWithBannerUrl(data.hackathon);
+  }
+  
+  return data;
 };
 
 // Create new hackathon (organizer/admin)
@@ -85,13 +169,27 @@ export const deleteHackathon = async (id) => {
 // Get my organized hackathons
 export const getMyHackathons = async () => {
   const response = await api.get('/me/hackathons');
-  return response.data;
+  const data = response.data;
+  
+  // Enrich hackathons with banner URLs
+  if (data.hackathons) {
+    data.hackathons = await enrichHackathonsWithBanners(data.hackathons);
+  }
+  
+  return data;
 };
 
 // Get hackathons I'm judging
 export const getMyJudgingHackathons = async () => {
   const response = await api.get('/me/judging');
-  return response.data;
+  const data = response.data;
+  
+  // Enrich hackathons with banner URLs
+  if (data.hackathons) {
+    data.hackathons = await enrichHackathonsWithBanners(data.hackathons);
+  }
+  
+  return data;
 };
 
 // Status transition helpers

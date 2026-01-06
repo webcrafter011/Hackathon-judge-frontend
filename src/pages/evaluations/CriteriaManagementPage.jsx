@@ -9,8 +9,6 @@ import {
   Trash2,
   Save,
   GripVertical,
-  AlertCircle,
-  CheckCircle,
   Loader2,
   Scale,
   Info
@@ -35,34 +33,34 @@ import useAuthStore from '../../store/authStore';
 const criteriaSchema = z.object({
   items: z.array(z.object({
     key: z.string().min(1, 'Key is required').regex(/^[a-z_]+$/, 'Key must be lowercase letters and underscores only'),
-    name: z.string().min(1, 'Name is required').max(50, 'Name must be under 50 characters'),
+    label: z.string().min(1, 'Label is required').max(50, 'Label must be under 50 characters'),
     description: z.string().max(200, 'Description must be under 200 characters').optional(),
     maxScore: z.coerce.number().min(1, 'Must be at least 1').max(100, 'Must be at most 100'),
-    weight: z.coerce.number().min(0, 'Must be at least 0').max(100, 'Must be at most 100'),
+    weight: z.coerce.number().min(0, 'Must be at least 0').max(10, 'Must be at most 10'),
   })).min(1, 'At least one criterion is required'),
 });
 
 // Default criteria templates
 const CRITERIA_TEMPLATES = {
   standard: [
-    { key: 'innovation', name: 'Innovation', description: 'Originality and creativity of the solution', maxScore: 10, weight: 25 },
-    { key: 'technical', name: 'Technical Excellence', description: 'Code quality, architecture, and implementation', maxScore: 10, weight: 25 },
-    { key: 'impact', name: 'Impact', description: 'Potential to solve real problems', maxScore: 10, weight: 20 },
-    { key: 'presentation', name: 'Presentation', description: 'Quality of demo and documentation', maxScore: 10, weight: 15 },
-    { key: 'completion', name: 'Completion', description: 'How complete and functional is the project', maxScore: 10, weight: 15 },
+    { key: 'innovation', label: 'Innovation & Creativity', description: 'How creative and innovative is the solution?', maxScore: 10, weight: 2 },
+    { key: 'technical', label: 'Technical Implementation', description: 'Quality of code, architecture, and technical execution', maxScore: 10, weight: 2 },
+    { key: 'design', label: 'UI/UX Design', description: 'Visual design and user experience', maxScore: 10, weight: 1.5 },
+    { key: 'impact', label: 'Business Impact', description: 'Potential real-world impact and viability', maxScore: 10, weight: 1.5 },
+    { key: 'presentation', label: 'Presentation', description: 'Quality of demo and pitch', maxScore: 10, weight: 1 },
   ],
   minimal: [
-    { key: 'overall', name: 'Overall Score', description: 'Overall quality of the submission', maxScore: 100, weight: 100 },
+    { key: 'overall', label: 'Overall Score', description: 'Overall quality of the submission', maxScore: 100, weight: 1 },
   ],
   detailed: [
-    { key: 'innovation', name: 'Innovation', description: 'Originality and creativity', maxScore: 10, weight: 15 },
-    { key: 'technical', name: 'Technical Complexity', description: 'Difficulty and sophistication of implementation', maxScore: 10, weight: 15 },
-    { key: 'code_quality', name: 'Code Quality', description: 'Clean, readable, maintainable code', maxScore: 10, weight: 10 },
-    { key: 'design', name: 'UI/UX Design', description: 'User experience and visual design', maxScore: 10, weight: 15 },
-    { key: 'functionality', name: 'Functionality', description: 'Features work correctly', maxScore: 10, weight: 15 },
-    { key: 'documentation', name: 'Documentation', description: 'README, comments, and instructions', maxScore: 10, weight: 10 },
-    { key: 'presentation', name: 'Presentation', description: 'Demo and pitch quality', maxScore: 10, weight: 10 },
-    { key: 'impact', name: 'Real-World Impact', description: 'Potential to solve actual problems', maxScore: 10, weight: 10 },
+    { key: 'innovation', label: 'Innovation', description: 'Originality and creativity', maxScore: 10, weight: 1.5 },
+    { key: 'technical', label: 'Technical Complexity', description: 'Difficulty and sophistication of implementation', maxScore: 10, weight: 1.5 },
+    { key: 'code_quality', label: 'Code Quality', description: 'Clean, readable, maintainable code', maxScore: 10, weight: 1 },
+    { key: 'design', label: 'UI/UX Design', description: 'User experience and visual design', maxScore: 10, weight: 1.5 },
+    { key: 'functionality', label: 'Functionality', description: 'Features work correctly', maxScore: 10, weight: 1.5 },
+    { key: 'documentation', label: 'Documentation', description: 'README, comments, and instructions', maxScore: 10, weight: 1 },
+    { key: 'presentation', label: 'Presentation', description: 'Demo and pitch quality', maxScore: 10, weight: 1 },
+    { key: 'impact', label: 'Real-World Impact', description: 'Potential to solve actual problems', maxScore: 10, weight: 1 },
   ],
 };
 
@@ -126,8 +124,16 @@ function CriteriaManagementPage() {
     fetchData();
   }, [fetchData]);
 
-  // Permissions
-  const isOrganizer = hackathon?.organizerId?.id === user?._id || hackathon?.organizerId === user?._id;
+  // Permissions - handle multiple ID formats
+  const userId = user?.id || user?._id;
+  const getOrgId = () => {
+    const org = hackathon?.organizerId || hackathon?.organizer;
+    if (!org) return null;
+    if (typeof org === 'string') return org;
+    return org.id || org._id;
+  };
+  const organizerId = getOrgId();
+  const isOrganizer = !!(organizerId && userId && String(organizerId) === String(userId));
   const isAdmin = user?.role === 'admin';
   const canManage = isOrganizer || isAdmin;
 
@@ -162,10 +168,10 @@ function CriteriaManagementPage() {
   const addCriterion = () => {
     append({
       key: `criterion_${fields.length + 1}`,
-      name: '',
+      label: '',
       description: '',
       maxScore: 10,
-      weight: 10,
+      weight: 1,
     });
   };
 
@@ -213,26 +219,16 @@ function CriteriaManagementPage() {
             {hackathon?.title || 'Hackathon'}
           </p>
         </div>
-        <Badge className={cn(
-          totalWeight === 100 ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'
-        )}>
+        <Badge className="bg-secondary/10 text-secondary">
           <Scale size={14} className="mr-1" />
-          Total Weight: {totalWeight}%
+          Total Weight: {totalWeight.toFixed(1)}
         </Badge>
       </div>
 
       {/* Messages */}
       {saveMessage && (
-        <Alert variant={saveMessage.type === 'error' ? 'destructive' : 'default'}>
-          {saveMessage.type === 'error' ? <AlertCircle size={16} /> : <CheckCircle size={16} />}
+        <Alert variant={saveMessage.type === 'error' ? 'error' : 'success'}>
           <span>{saveMessage.text}</span>
-        </Alert>
-      )}
-
-      {totalWeight !== 100 && (
-        <Alert variant="warning">
-          <AlertCircle size={16} />
-          <span>Total weight should equal 100%. Current: {totalWeight}%</span>
         </Alert>
       )}
 
@@ -332,14 +328,14 @@ function CriteriaManagementPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Name (display name)</Label>
+                      <Label>Label (display name)</Label>
                       <Input
-                        {...register(`items.${index}.name`)}
+                        {...register(`items.${index}.label`)}
                         placeholder="e.g., Innovation"
-                        className={cn(errors.items?.[index]?.name && 'border-error')}
+                        className={cn(errors.items?.[index]?.label && 'border-error')}
                       />
-                      {errors.items?.[index]?.name && (
-                        <p className="text-xs text-error">{errors.items[index].name.message}</p>
+                      {errors.items?.[index]?.label && (
+                        <p className="text-xs text-error">{errors.items[index].label.message}</p>
                       )}
                     </div>
                   </div>
@@ -369,12 +365,13 @@ function CriteriaManagementPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>Weight (%)</Label>
+                      <Label>Weight (multiplier)</Label>
                       <Input
                         type="number"
+                        step="0.5"
                         {...register(`items.${index}.weight`)}
                         min={0}
-                        max={100}
+                        max={10}
                         className={cn(errors.items?.[index]?.weight && 'border-error')}
                       />
                       {errors.items?.[index]?.weight && (
@@ -395,8 +392,8 @@ function CriteriaManagementPage() {
             <p className="font-medium">How Scoring Works</p>
             <ul className="text-sm text-muted-foreground mt-1 list-disc list-inside space-y-1">
               <li>Each criterion has a max score (e.g., 10 points)</li>
-              <li>Weights determine each criterion's importance (should total 100%)</li>
-              <li>Final score = Σ (score / maxScore × weight)</li>
+              <li>Weight is a multiplier for importance (e.g., 2 = twice as important)</li>
+              <li>Final score = Σ (score × weight) / Σ (maxScore × weight)</li>
             </ul>
           </div>
         </Alert>
@@ -412,7 +409,7 @@ function CriteriaManagementPage() {
           </Button>
           <Button
             type="submit"
-            disabled={isSaving || totalWeight !== 100}
+            disabled={isSaving}
           >
             {isSaving ? (
               <>

@@ -10,7 +10,6 @@ import {
   XCircle,
   Mail,
   Shield,
-  AlertCircle,
   Loader2,
   RefreshCw
 } from 'lucide-react';
@@ -74,8 +73,16 @@ function JudgeManagementPage() {
     fetchData();
   }, [fetchData]);
 
-  // Permissions check
-  const isOrganizer = hackathon?.organizerId?.id === user?._id || hackathon?.organizerId === user?._id;
+  // Permissions - handle multiple ID formats
+  const userId = user?.id || user?._id;
+  const getOrgId = () => {
+    const org = hackathon?.organizerId || hackathon?.organizer;
+    if (!org) return null;
+    if (typeof org === 'string') return org;
+    return org.id || org._id;
+  };
+  const organizerId = getOrgId();
+  const isOrganizer = !!(organizerId && userId && String(organizerId) === String(userId));
   const isAdmin = user?.role === 'admin';
   const canManage = isOrganizer || isAdmin;
 
@@ -196,8 +203,7 @@ function JudgeManagementPage() {
       </div>
 
       {saveMessage && (
-        <Alert variant={saveMessage.type === 'error' ? 'destructive' : 'default'}>
-          {saveMessage.type === 'error' ? <AlertCircle size={16} /> : <CheckCircle size={16} />}
+        <Alert variant={saveMessage.type === 'error' ? 'error' : 'success'}>
           <span>{saveMessage.text}</span>
         </Alert>
       )}

@@ -63,7 +63,7 @@ const SIDEBAR_WIDTH_COLLAPSED = 72; // 18 * 4 = 72px (w-18)
 function MainLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, isLoading } = useAuthStore();
+  const { user, logout, isLoading, fetchCurrentUser } = useAuthStore();
   
   // Mobile sidebar state (overlay)
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -73,6 +73,13 @@ function MainLayout() {
     return saved === 'true';
   });
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  // Fetch full user profile on mount (for avatar, etc.)
+  useEffect(() => {
+    if (user && !user.avatar) {
+      fetchCurrentUser();
+    }
+  }, []);
 
   // Persist collapsed state
   useEffect(() => {
@@ -236,13 +243,25 @@ function MainLayout() {
           'absolute bottom-0 left-0 right-0 p-3 border-t border-border',
           collapsed ? 'px-2' : 'p-4'
         )}>
-          <div className={cn(
-            'flex items-center gap-3',
-            collapsed && 'justify-center'
-          )}>
-            <div className="w-10 h-10 bg-secondary/10 rounded-full flex items-center justify-center shrink-0">
-              <User size={18} className="text-secondary" />
-            </div>
+          <Link
+            to="/profile"
+            onClick={() => setMobileOpen(false)}
+            className={cn(
+              'flex items-center gap-3 hover:opacity-80 transition-opacity',
+              collapsed && 'justify-center'
+            )}
+          >
+            {user?.avatar ? (
+              <img 
+                src={user.avatar} 
+                alt={user.name} 
+                className="w-10 h-10 rounded-full object-cover shrink-0"
+              />
+            ) : (
+              <div className="w-10 h-10 bg-secondary/10 rounded-full flex items-center justify-center shrink-0">
+                <User size={18} className="text-secondary" />
+              </div>
+            )}
             <div className={cn(
               'flex-1 min-w-0 transition-opacity duration-300',
               collapsed ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'
@@ -252,7 +271,7 @@ function MainLayout() {
                 {roleInfo.label}
               </span>
             </div>
-          </div>
+          </Link>
         </div>
       </aside>
 
@@ -314,9 +333,17 @@ function MainLayout() {
                   className="flex items-center gap-2 p-2 hover:bg-muted rounded-lg"
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
                 >
-                  <div className="w-8 h-8 bg-secondary/10 rounded-full flex items-center justify-center">
-                    <User size={16} className="text-secondary" />
-                  </div>
+                  {user?.avatar ? (
+                    <img 
+                      src={user.avatar} 
+                      alt={user.name} 
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 bg-secondary/10 rounded-full flex items-center justify-center">
+                      <User size={16} className="text-secondary" />
+                    </div>
+                  )}
                   <ChevronDown size={16} className="text-muted-foreground hidden sm:block" />
                 </button>
 
@@ -334,12 +361,12 @@ function MainLayout() {
                       </div>
                       <div className="p-2">
                         <Link
-                          to="/settings"
+                          to="/profile"
                           className="flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-muted transition-colors"
                           onClick={() => setUserMenuOpen(false)}
                         >
                           <Settings size={16} />
-                          Settings
+                          Profile Settings
                         </Link>
                         <button
                           onClick={handleLogout}

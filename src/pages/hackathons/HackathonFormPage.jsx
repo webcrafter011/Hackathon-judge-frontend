@@ -14,7 +14,10 @@ import {
   Users,
   FileText,
   Settings,
-  AlertCircle
+  AlertCircle,
+  Upload,
+  Image,
+  X
 } from 'lucide-react';
 import { 
   Button, 
@@ -33,6 +36,7 @@ import {
   getHackathonById,
   HACKATHON_VISIBILITY 
 } from '../../services/hackathonService';
+import { uploadHackathonBanner } from '../../services/assetService';
 import { cn, getErrorMessage } from '../../lib/utils';
 import useAuthStore from '../../store/authStore';
 
@@ -84,6 +88,13 @@ function HackathonFormPage() {
   const [isFetching, setIsFetching] = useState(isEditing);
   const [error, setError] = useState(null);
   const [activeSection, setActiveSection] = useState('basic');
+  
+  // Banner state
+  const [bannerFile, setBannerFile] = useState(null);
+  const [bannerPreview, setBannerPreview] = useState(null);
+  const [currentBannerUrl, setCurrentBannerUrl] = useState(null);
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const [bannerMessage, setBannerMessage] = useState(null);
 
   const {
     register,
@@ -149,6 +160,11 @@ function HackathonFormPage() {
             teamConstraints: h.teamConstraints || { minSize: 2, maxSize: 5, allowSolo: false },
             prizes: h.prizes?.length > 0 ? h.prizes : [{ rank: 1, title: 'First Place', description: '', value: '' }],
           });
+          
+          // Set banner URL if available (enriched by hackathonService)
+          if (h.bannerUrl) {
+            setCurrentBannerUrl(h.bannerUrl);
+          }
         } catch (err) {
           setError(getErrorMessage(err));
         } finally {
@@ -196,6 +212,72 @@ function HackathonFormPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Handle banner file selection
+  const handleBannerSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setBannerMessage({ type: 'error', text: 'Please select an image file' });
+      return;
+    }
+    
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setBannerMessage({ type: 'error', text: 'Image must be less than 5MB' });
+      return;
+    }
+    
+    setBannerFile(file);
+    setBannerMessage(null);
+    
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setBannerPreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Upload banner
+  const handleBannerUpload = async () => {
+    if (!bannerFile || !id) {
+      setBannerMessage({ type: 'error', text: 'Please select a banner image first' });
+      return;
+    }
+    
+    setIsUploadingBanner(true);
+    setBannerMessage(null);
+    
+    try {
+      const result = await uploadHackathonBanner(id, bannerFile);
+      console.log('Banner upload result:', result);
+      
+      // Get the URL from the response
+      const bannerUrl = result.asset?.storageUrl || result.asset?.url || result.url;
+      if (bannerUrl) {
+        setCurrentBannerUrl(bannerUrl);
+      }
+      
+      setBannerMessage({ type: 'success', text: 'Banner uploaded successfully!' });
+      setBannerFile(null);
+      setBannerPreview(null);
+    } catch (err) {
+      console.error('Banner upload error:', err);
+      setBannerMessage({ type: 'error', text: getErrorMessage(err) });
+    } finally {
+      setIsUploadingBanner(false);
+    }
+  };
+
+  // Remove banner preview (cancel selection)
+  const handleBannerRemove = () => {
+    setBannerFile(null);
+    setBannerPreview(null);
+    setBannerMessage(null);
   };
 
   const sections = [
@@ -321,6 +403,94 @@ function HackathonFormPage() {
                 />
                 <p className="text-xs text-muted-foreground">Separate tags with commas</p>
               </div>
+
+              {/* Banner Upload - Only show when editing */}
+              {isEditing && (
+                <div className="space-y-3 pt-4 border-t border-border">
+                  <Label>Hackathon Banner</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Upload a banner image for your hackathon (recommended: 1200x400px, max 5MB)
+                  </p>
+                  
+                  {/* Current Banner Preview */}
+                  {(currentBannerUrl || bannerPreview) && (
+                    <div className="relative rounded-lg overflow-hidden border border-border">
+                      <img 
+                        src={bannerPreview || currentBannerUrl} 
+                        alt="Banner preview"
+                        className="w-full h-40 object-cover"
+                      />
+                      {bannerPreview && (
+                        <button
+                          type="button"
+                          onClick={handleBannerRemove}
+                          className="absolute top-2 right-2 p-1 bg-black/50 rounded-full text-white hover:bg-black/70"
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Upload Area */}
+                  {!bannerPreview && (
+                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                      <div className="flex flex-col items-center justify-center py-4">
+                        <Image className="w-8 h-8 mb-2 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">
+                          <span className="font-semibold text-secondary">Click to upload</span> or drag and drop
+                        </p>
+                        <p className="text-xs text-muted-foreground">PNG, JPG, WEBP (max 5MB)</p>
+                      </div>
+                      <input 
+                        type="file" 
+                        className="hidden" 
+                        accept="image/*"
+                        onChange={handleBannerSelect}
+                      />
+                    </label>
+                  )}
+                  
+                  {/* Upload Button (when file is selected) */}
+                  {bannerFile && (
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        onClick={handleBannerUpload}
+                        disabled={isUploadingBanner}
+                        className="flex-1"
+                      >
+                        {isUploadingBanner ? (
+                          <>
+                            <span className="animate-spin mr-2">⏳</span>
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <Upload size={16} />
+                            Upload Banner
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleBannerRemove}
+                        disabled={isUploadingBanner}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {/* Banner Message */}
+                  {bannerMessage && (
+                    <Alert variant={bannerMessage.type === 'success' ? 'success' : 'error'}>
+                      {bannerMessage.text}
+                    </Alert>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

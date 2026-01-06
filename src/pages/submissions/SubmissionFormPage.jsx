@@ -13,7 +13,6 @@ import {
   FileText,
   Upload,
   X,
-  AlertCircle,
   CheckCircle,
   Clock,
   ExternalLink,
@@ -263,7 +262,7 @@ function SubmissionFormPage() {
 
       {/* Deadline Warning */}
       {deadline && (
-        <Alert variant={deadlinePassed ? 'destructive' : 'default'}>
+        <Alert variant={deadlinePassed ? 'error' : 'info'}>
           <Clock size={16} />
           <span>
             Submission deadline: {formatDateTime(deadline)}
@@ -281,8 +280,7 @@ function SubmissionFormPage() {
       )}
 
       {saveMessage && (
-        <Alert variant={saveMessage.type === 'error' ? 'destructive' : 'default'}>
-          {saveMessage.type === 'error' ? <AlertCircle size={16} /> : <CheckCircle size={16} />}
+        <Alert variant={saveMessage.type === 'error' ? 'error' : 'success'}>
           <span>{saveMessage.text}</span>
         </Alert>
       )}

@@ -6,6 +6,7 @@ export { default as Badge } from './Badge';
 export { default as Select } from './Select';
 export { default as Textarea } from './Textarea';
 export { default as Pagination } from './Pagination';
+export { default as AvatarUpload } from './AvatarUpload';
 export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './Card';
 export { Spinner, LoadingScreen } from './Spinner';
 export { EmptyState, ErrorState } from './EmptyState';
