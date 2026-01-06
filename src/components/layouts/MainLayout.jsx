@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 import { Button } from '../ui';
-import { 
-  Trophy, 
-  LayoutDashboard, 
-  Users, 
-  FileText, 
-  Settings, 
-  LogOut, 
-  Menu, 
+import {
+  Trophy,
+  LayoutDashboard,
+  Users,
+  FileText,
+  Settings,
+  LogOut,
+  Menu,
   X,
   ChevronDown,
   ChevronLeft,
@@ -24,6 +24,7 @@ import {
   PanelLeft
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import BottomNav from './BottomNav';
 
 const navigation = {
   participant: [
@@ -64,7 +65,7 @@ function MainLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, isLoading, fetchCurrentUser } = useAuthStore();
-  
+
   // Mobile sidebar state (overlay)
   const [mobileOpen, setMobileOpen] = useState(false);
   // Desktop sidebar collapsed state
@@ -88,12 +89,12 @@ function MainLayout() {
 
   // Track window width for responsive margin
   const [isLargeScreen, setIsLargeScreen] = useState(window.innerWidth >= 1024);
-  
+
   useEffect(() => {
     const handleResize = () => {
       setIsLargeScreen(window.innerWidth >= 1024);
     };
-    
+
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -124,14 +125,14 @@ function MainLayout() {
     <div className="min-h-screen bg-muted/30 flex">
       {/* Mobile Sidebar Overlay */}
       {mobileOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
 
       {/* Sidebar */}
-      <aside 
+      <aside
         className={cn(
           'fixed top-0 left-0 z-50 h-full bg-primary border-r border-border transition-all duration-300 ease-in-out',
           // Mobile: slide in/out
@@ -154,7 +155,7 @@ function MainLayout() {
             </span>
           </Link>
           {/* Mobile close button */}
-          <button 
+          <button
             className="lg:hidden p-1 hover:bg-muted rounded"
             onClick={() => setMobileOpen(false)}
           >
@@ -174,8 +175,8 @@ function MainLayout() {
                 title={collapsed ? item.name : undefined}
                 className={cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                  isActive 
-                    ? 'bg-secondary text-white' 
+                  isActive
+                    ? 'bg-secondary text-white'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                   collapsed && 'justify-center px-2'
                 )}
@@ -212,7 +213,7 @@ function MainLayout() {
             collapsed ? 'px-2' : 'px-4'
           )}>
             {collapsed ? (
-              <Button 
+              <Button
                 size="icon"
                 className="w-full"
                 onClick={() => {
@@ -224,7 +225,7 @@ function MainLayout() {
                 <Plus size={18} />
               </Button>
             ) : (
-              <Button 
+              <Button
                 className="w-full"
                 onClick={() => {
                   navigate('/hackathons/create');
@@ -252,9 +253,9 @@ function MainLayout() {
             )}
           >
             {user?.avatar ? (
-              <img 
-                src={user.avatar} 
-                alt={user.name} 
+              <img
+                src={user.avatar}
+                alt={user.name}
                 className="w-10 h-10 rounded-full object-cover shrink-0"
               />
             ) : (
@@ -276,7 +277,7 @@ function MainLayout() {
       </aside>
 
       {/* Main Content Wrapper - adjusts based on sidebar */}
-      <div 
+      <div
         className="flex-1 flex flex-col min-h-screen transition-all duration-300 ease-in-out"
         style={{ marginLeft: isLargeScreen ? `${sidebarWidth}px` : 0 }}
       >
@@ -286,15 +287,15 @@ function MainLayout() {
             {/* Left Side: Toggle Buttons */}
             <div className="flex items-center gap-2">
               {/* Mobile Menu Button */}
-              <button 
-                className="lg:hidden p-2 hover:bg-muted rounded-lg"
+              <button
+                className="hidden sm:block lg:hidden p-2 hover:bg-muted rounded-lg"
                 onClick={() => setMobileOpen(true)}
               >
                 <Menu size={20} />
               </button>
-              
+
               {/* Desktop Toggle Button */}
-              <button 
+              <button
                 className="hidden lg:flex p-2 hover:bg-muted rounded-lg"
                 onClick={() => setCollapsed(!collapsed)}
                 title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -329,14 +330,14 @@ function MainLayout() {
 
               {/* User Menu */}
               <div className="relative">
-                <button 
+                <button
                   className="flex items-center gap-2 p-2 hover:bg-muted rounded-lg"
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
                 >
                   {user?.avatar ? (
-                    <img 
-                      src={user.avatar} 
-                      alt={user.name} 
+                    <img
+                      src={user.avatar}
+                      alt={user.name}
                       className="w-8 h-8 rounded-full object-cover"
                     />
                   ) : (
@@ -350,7 +351,7 @@ function MainLayout() {
                 {/* Dropdown */}
                 {userMenuOpen && (
                   <>
-                    <div 
+                    <div
                       className="fixed inset-0 z-40"
                       onClick={() => setUserMenuOpen(false)}
                     />
@@ -386,9 +387,12 @@ function MainLayout() {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-20 sm:pb-8">
           <Outlet />
         </main>
+
+        {/* Bottom Navigation (Mobile only) */}
+        <BottomNav />
       </div>
     </div>
   );
