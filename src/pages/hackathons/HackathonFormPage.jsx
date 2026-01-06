@@ -3,10 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { 
-  ArrowLeft, 
-  Plus, 
-  Trash2, 
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
   Save,
   Eye,
   Calendar,
@@ -17,24 +17,25 @@ import {
   AlertCircle,
   Upload,
   Image,
-  X
+  X,
+  MoreHorizontal
 } from 'lucide-react';
-import { 
-  Button, 
-  Input, 
-  Label, 
-  Textarea, 
+import {
+  Button,
+  Input,
+  Label,
+  Textarea,
   Select,
   Alert,
   Badge,
   LoadingScreen
 } from '../../components/ui';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui';
-import { 
-  createHackathon, 
-  updateHackathon, 
+import {
+  createHackathon,
+  updateHackathon,
   getHackathonById,
-  HACKATHON_VISIBILITY 
+  HACKATHON_VISIBILITY
 } from '../../services/hackathonService';
 import { uploadHackathonBanner } from '../../services/assetService';
 import { cn, getErrorMessage } from '../../lib/utils';
@@ -83,12 +84,13 @@ function HackathonFormPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const isEditing = Boolean(id);
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(isEditing);
   const [error, setError] = useState(null);
   const [activeSection, setActiveSection] = useState('basic');
-  
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+
   // Banner state
   const [bannerFile, setBannerFile] = useState(null);
   const [bannerPreview, setBannerPreview] = useState(null);
@@ -140,7 +142,7 @@ function HackathonFormPage() {
         try {
           const data = await getHackathonById(id);
           const h = data.hackathon;
-          
+
           // Format dates for input[type="datetime-local"]
           const formatDateForInput = (date) => {
             if (!date) return '';
@@ -160,7 +162,7 @@ function HackathonFormPage() {
             teamConstraints: h.teamConstraints || { minSize: 2, maxSize: 5, allowSolo: false },
             prizes: h.prizes?.length > 0 ? h.prizes : [{ rank: 1, title: 'First Place', description: '', value: '' }],
           });
-          
+
           // Set banner URL if available (enriched by hackathonService)
           if (h.bannerUrl) {
             setCurrentBannerUrl(h.bannerUrl);
@@ -181,7 +183,7 @@ function HackathonFormPage() {
 
     try {
       // Process tags
-      const tags = data.tags 
+      const tags = data.tags
         ? data.tags.split(',').map(t => t.trim()).filter(Boolean)
         : [];
 
@@ -194,8 +196,8 @@ function HackathonFormPage() {
         prizes,
         startAt: new Date(data.startAt).toISOString(),
         endAt: new Date(data.endAt).toISOString(),
-        submissionDeadline: data.submissionDeadline 
-          ? new Date(data.submissionDeadline).toISOString() 
+        submissionDeadline: data.submissionDeadline
+          ? new Date(data.submissionDeadline).toISOString()
           : undefined,
       };
 
@@ -218,22 +220,22 @@ function HackathonFormPage() {
   const handleBannerSelect = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     // Validate file type
     if (!file.type.startsWith('image/')) {
       setBannerMessage({ type: 'error', text: 'Please select an image file' });
       return;
     }
-    
+
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       setBannerMessage({ type: 'error', text: 'Image must be less than 5MB' });
       return;
     }
-    
+
     setBannerFile(file);
     setBannerMessage(null);
-    
+
     // Create preview
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -248,20 +250,20 @@ function HackathonFormPage() {
       setBannerMessage({ type: 'error', text: 'Please select a banner image first' });
       return;
     }
-    
+
     setIsUploadingBanner(true);
     setBannerMessage(null);
-    
+
     try {
       const result = await uploadHackathonBanner(id, bannerFile);
       console.log('Banner upload result:', result);
-      
+
       // Get the URL from the response
       const bannerUrl = result.asset?.storageUrl || result.asset?.url || result.url;
       if (bannerUrl) {
         setCurrentBannerUrl(bannerUrl);
       }
-      
+
       setBannerMessage({ type: 'success', text: 'Banner uploaded successfully!' });
       setBannerFile(null);
       setBannerPreview(null);
@@ -297,8 +299,8 @@ function HackathonFormPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             onClick={() => navigate(-1)}
             className="gap-2 mb-2"
           >
@@ -309,8 +311,8 @@ function HackathonFormPage() {
             {isEditing ? 'Edit Hackathon' : 'Create Hackathon'}
           </h1>
           <p className="text-muted-foreground mt-1">
-            {isEditing 
-              ? 'Update your hackathon details' 
+            {isEditing
+              ? 'Update your hackathon details'
               : 'Set up a new hackathon for participants'
             }
           </p>
@@ -328,7 +330,8 @@ function HackathonFormPage() {
       {/* Form */}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Section Navigation */}
-        <div className="flex gap-2 overflow-x-auto pb-2">
+        {/* Desktop: Show all tabs */}
+        <div className="hidden sm:flex gap-2 pb-2">
           {sections.map((section) => (
             <button
               key={section.id}
@@ -345,6 +348,67 @@ function HackathonFormPage() {
               {section.label}
             </button>
           ))}
+        </div>
+
+        {/* Mobile: Show first 3 tabs + overflow menu */}
+        <div className="flex sm:hidden gap-2 pb-2">
+          {sections.slice(0, 2).map((section) => (
+            <button
+              key={section.id}
+              type="button"
+              onClick={() => setActiveSection(section.id)}
+              className={cn(
+                'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors',
+                activeSection === section.id
+                  ? 'bg-secondary text-white'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              )}
+            >
+              <section.icon size={16} />
+              {section.label}
+            </button>
+          ))}
+
+          {/* Overflow menu for remaining sections */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowMoreMenu(!showMoreMenu)}
+              className={cn(
+                'flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                sections.slice(2).some(s => s.id === activeSection)
+                  ? 'bg-secondary text-white'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              )}
+            >
+              <MoreHorizontal size={16} />
+            </button>
+
+            {/* Dropdown menu */}
+            {showMoreMenu && (
+              <div className="absolute right-0 top-full mt-1 z-50 min-w-[160px] bg-card border border-border rounded-lg shadow-lg py-1">
+                {sections.slice(2).map((section) => (
+                  <button
+                    key={section.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveSection(section.id);
+                      setShowMoreMenu(false);
+                    }}
+                    className={cn(
+                      'w-full flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors text-left',
+                      activeSection === section.id
+                        ? 'bg-secondary/10 text-secondary'
+                        : 'text-foreground hover:bg-muted'
+                    )}
+                  >
+                    <section.icon size={16} />
+                    {section.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Basic Info Section */}
@@ -411,12 +475,12 @@ function HackathonFormPage() {
                   <p className="text-xs text-muted-foreground">
                     Upload a banner image for your hackathon (recommended: 1200x400px, max 5MB)
                   </p>
-                  
+
                   {/* Current Banner Preview */}
                   {(currentBannerUrl || bannerPreview) && (
                     <div className="relative rounded-lg overflow-hidden border border-border">
-                      <img 
-                        src={bannerPreview || currentBannerUrl} 
+                      <img
+                        src={bannerPreview || currentBannerUrl}
                         alt="Banner preview"
                         className="w-full h-40 object-cover"
                       />
@@ -431,7 +495,7 @@ function HackathonFormPage() {
                       )}
                     </div>
                   )}
-                  
+
                   {/* Upload Area */}
                   {!bannerPreview && (
                     <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
@@ -442,15 +506,15 @@ function HackathonFormPage() {
                         </p>
                         <p className="text-xs text-muted-foreground">PNG, JPG, WEBP (max 5MB)</p>
                       </div>
-                      <input 
-                        type="file" 
-                        className="hidden" 
+                      <input
+                        type="file"
+                        className="hidden"
                         accept="image/*"
                         onChange={handleBannerSelect}
                       />
                     </label>
                   )}
-                  
+
                   {/* Upload Button (when file is selected) */}
                   {bannerFile && (
                     <div className="flex gap-2">
@@ -482,7 +546,7 @@ function HackathonFormPage() {
                       </Button>
                     </div>
                   )}
-                  
+
                   {/* Banner Message */}
                   {bannerMessage && (
                     <Alert variant={bannerMessage.type === 'success' ? 'success' : 'error'}>
@@ -609,7 +673,7 @@ function HackathonFormPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {prizeFields.map((field, index) => (
-                <div 
+                <div
                   key={field.id}
                   className="p-4 border border-border rounded-lg space-y-4"
                 >
@@ -666,11 +730,11 @@ function HackathonFormPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => appendPrize({ 
-                  rank: prizeFields.length + 1, 
-                  title: '', 
-                  description: '', 
-                  value: '' 
+                onClick={() => appendPrize({
+                  rank: prizeFields.length + 1,
+                  title: '',
+                  description: '',
+                  value: ''
                 })}
                 className="w-full"
               >

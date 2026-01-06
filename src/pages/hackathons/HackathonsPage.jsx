@@ -1,25 +1,25 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { 
-  Search, 
-  Filter, 
-  Calendar, 
-  Users, 
-  Trophy, 
+import {
+  Search,
+  Filter,
+  Calendar,
+  Users,
+  Trophy,
   MapPin,
   Clock,
   ArrowRight,
   X
 } from 'lucide-react';
-import { 
-  Button, 
-  Badge, 
-  Select, 
-  Input, 
+import {
+  Button,
+  Badge,
+  Select,
+  Input,
   Pagination,
   LoadingScreen,
   EmptyState,
-  ErrorState 
+  ErrorState
 } from '../../components/ui';
 import { Card, CardContent } from '../../components/ui';
 import { getHackathons, getStatusConfig, HACKATHON_STATUS } from '../../services/hackathonService';
@@ -31,7 +31,7 @@ const PRIVILEGED_ROLES = ['admin', 'organizer', 'judge'];
 
 function HackathonCard({ hackathon }) {
   const statusConfig = getStatusConfig(hackathon.status);
-  
+
   const formatDateRange = (start, end) => {
     const startDate = new Date(start);
     const endDate = new Date(end);
@@ -44,7 +44,7 @@ function HackathonCard({ hackathon }) {
     const now = new Date();
     const start = new Date(hackathon.startAt);
     const end = new Date(hackathon.endAt);
-    
+
     if (hackathon.status === 'open') {
       const diff = Math.ceil((start - now) / (1000 * 60 * 60 * 24));
       if (diff > 0) return `Starts in ${diff} days`;
@@ -64,19 +64,19 @@ function HackathonCard({ hackathon }) {
     <Link to={`/hackathons/${hackathon._id}`}>
       <Card className="h-full hover:shadow-md hover:border-secondary/50 transition-all duration-300 group overflow-hidden">
         {/* Banner Image */}
-        <div className="relative h-40 bg-gradient-to-br from-secondary/20 to-secondary/5 overflow-hidden">
+        <div className="p-2 relative h-40 overflow-hidden">
           {hackathon.bannerUrl ? (
-            <img 
-              src={hackathon.bannerUrl} 
+            <img
+              src={hackathon.bannerUrl}
               alt={hackathon.title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              className="rounded-lg w-full h-full object-cover"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               <Trophy size={48} className="text-secondary/30" />
             </div>
           )}
-          
+
           {/* Status Badge */}
           <div className="absolute top-3 left-3">
             <Badge className={statusConfig.color}>
@@ -145,9 +145,12 @@ function HackathonCard({ hackathon }) {
                 </span>
               )}
             </div>
-            <span className="text-sm font-medium text-secondary group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">
+            <Button variant="outline" className="text-sm bg-secondary text-white">
+              View Details
+            </Button>
+            {/* <span className="text-sm font-medium text-secondary group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">
               View Details <ArrowRight size={14} />
-            </span>
+            </span> */}
           </div>
         </CardContent>
       </Card>
@@ -158,13 +161,13 @@ function HackathonCard({ hackathon }) {
 function HackathonsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, user } = useAuthStore();
-  
+
   // Check if user is privileged (can see archived hackathons)
   const canViewArchived = useMemo(() => {
     if (!user) return false;
     return PRIVILEGED_ROLES.includes(user.role);
   }, [user]);
-  
+
   const [hackathons, setHackathons] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
   const [isLoading, setIsLoading] = useState(true);
@@ -197,16 +200,16 @@ function HackathonsPage() {
       if (filters.tag) params.tag = filters.tag;
 
       const data = await getHackathons(params);
-      
+
       // Filter out archived hackathons for participants
       // Only privileged roles (admin, organizer, judge) can see archived hackathons
       let filteredHackathons = data.hackathons || [];
       if (!canViewArchived) {
         filteredHackathons = filteredHackathons.filter(h => h.status !== 'archived');
       }
-      
+
       setHackathons(filteredHackathons);
-      
+
       // Adjust pagination total if we filtered
       const filteredCount = filteredHackathons.length;
       const originalPagination = data.pagination || { page: 1, pages: 1, total: 0 };
@@ -235,13 +238,13 @@ function HackathonsPage() {
   const updateFilters = (newFilters) => {
     const params = new URLSearchParams();
     const merged = { ...filters, ...newFilters, page: newFilters.page || 1 };
-    
+
     if (merged.page > 1) params.set('page', merged.page);
     if (merged.status) params.set('status', merged.status);
     if (merged.visibility) params.set('visibility', merged.visibility);
     if (merged.search) params.set('q', merged.search);
     if (merged.tag) params.set('tag', merged.tag);
-    
+
     setSearchParams(params);
   };
 
@@ -293,8 +296,8 @@ function HackathonsPage() {
               className="pl-10"
             />
           </div>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => setShowFilters(!showFilters)}
             className={cn(showFilters && 'border-secondary text-secondary')}
           >
@@ -406,7 +409,7 @@ function HackathonsPage() {
       {isLoading ? (
         <LoadingScreen message="Loading hackathons..." />
       ) : error ? (
-        <ErrorState 
+        <ErrorState
           description={error}
           onRetry={fetchHackathons}
         />
@@ -414,7 +417,7 @@ function HackathonsPage() {
         <EmptyState
           icon={Trophy}
           title="No hackathons found"
-          description={hasActiveFilters 
+          description={hasActiveFilters
             ? "Try adjusting your filters to find what you're looking for."
             : "There are no hackathons available at the moment. Check back later!"
           }

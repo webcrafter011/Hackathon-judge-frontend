@@ -10,3 +10,4 @@ export { default as AvatarUpload } from './AvatarUpload';
 export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './Card';
 export { Spinner, LoadingScreen } from './Spinner';
 export { EmptyState, ErrorState } from './EmptyState';
+export { default as ScoringModal } from './ScoringModal';

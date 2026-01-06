@@ -43,7 +43,7 @@ function CardDescription({ className, children, ...props }) {
 
 function CardContent({ className, children, ...props }) {
   return (
-    <div className={cn('p-6 pt-0', className)} {...props}>
+    <div className={cn('p-6 pt-4', className)} {...props}>
       {children}
     </div>
   );

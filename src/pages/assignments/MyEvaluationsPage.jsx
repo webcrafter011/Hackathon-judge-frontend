@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { 
-  Users, 
-  Trophy, 
+import {
+  Users,
+  Trophy,
   Calendar,
   ArrowRight,
   UserCheck,
@@ -13,10 +13,10 @@ import {
   BarChart3,
   ClipboardList
 } from 'lucide-react';
-import { 
-  Button, 
-  Badge, 
-  LoadingScreen, 
+import {
+  Button,
+  Badge,
+  LoadingScreen,
   EmptyState,
   ErrorState
 } from '../../components/ui';
@@ -29,7 +29,7 @@ import useAuthStore from '../../store/authStore';
 function MyEvaluationsPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  
+
   const [hackathonsWithAssignments, setHackathonsWithAssignments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -41,7 +41,7 @@ function MyEvaluationsPage() {
       // Get all hackathons (we'll check assignments for each)
       const hackathonsData = await getHackathons({ limit: 100 });
       const hackathons = hackathonsData.hackathons || [];
-      
+
       // For each hackathon, try to fetch the judge's assignments
       // The /mine endpoint will return assignments if the user is assigned as a judge
       const assignmentPromises = hackathons.map(async (hackathon) => {
@@ -84,8 +84,8 @@ function MyEvaluationsPage() {
 
   if (user?.role !== 'judge' && user?.role !== 'admin') {
     return (
-      <ErrorState 
-        title="Access Denied" 
+      <ErrorState
+        title="Access Denied"
         message="This page is only accessible to judges."
         action={() => navigate('/dashboard')}
         actionLabel="Go to Dashboard"
@@ -99,8 +99,8 @@ function MyEvaluationsPage() {
 
   if (error) {
     return (
-      <ErrorState 
-        title="Failed to load evaluations" 
+      <ErrorState
+        title="Failed to load evaluations"
         message={error}
         action={fetchData}
         actionLabel="Try Again"
@@ -110,10 +110,10 @@ function MyEvaluationsPage() {
 
   // Separate active and past hackathons
   const now = new Date();
-  const activeHackathons = hackathonsWithAssignments.filter(h => 
+  const activeHackathons = hackathonsWithAssignments.filter(h =>
     new Date(h.hackathon.endAt) >= now && h.hackathon.status !== 'completed'
   );
-  const pastHackathons = hackathonsWithAssignments.filter(h => 
+  const pastHackathons = hackathonsWithAssignments.filter(h =>
     new Date(h.hackathon.endAt) < now || h.hackathon.status === 'completed'
   );
 
@@ -133,24 +133,24 @@ function MyEvaluationsPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard 
-          label="Active Hackathons" 
+        <StatCard
+          label="Active Hackathons"
           value={activeHackathons.length}
           icon={Trophy}
         />
-        <StatCard 
-          label="Teams to Evaluate" 
+        <StatCard
+          label="Teams to Evaluate"
           value={totalTeams}
           icon={Users}
         />
-        <StatCard 
-          label="Evaluated" 
+        <StatCard
+          label="Evaluated"
           value={evaluatedTeams}
           icon={CheckCircle}
           variant="success"
         />
-        <StatCard 
-          label="Pending" 
+        <StatCard
+          label="Pending"
           value={totalTeams - evaluatedTeams}
           icon={Clock}
           variant={totalTeams - evaluatedTeams > 0 ? 'warning' : 'success'}
@@ -196,7 +196,7 @@ function MyEvaluationsPage() {
 function StatCard({ label, value, icon: Icon, variant }) {
   return (
     <Card>
-      <CardContent className="p-4">
+      <CardContent className="p-4 pt-4">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wide">{label}</p>
@@ -218,7 +218,7 @@ function StatCard({ label, value, icon: Icon, variant }) {
 
 function HackathonAssignmentCard({ data, isPast }) {
   const { hackathon, teams, evaluatedCount } = data;
-  
+
   // Normalize teams - handle both populated objects and ID strings
   const normalizedTeams = (teams || []).map(team => {
     if (typeof team === 'string') {
@@ -226,7 +226,7 @@ function HackathonAssignmentCard({ data, isPast }) {
     }
     return team;
   });
-  
+
   const totalCount = normalizedTeams.length;
   const progress = totalCount > 0 ? (evaluatedCount / totalCount) * 100 : 0;
   const isComplete = evaluatedCount >= totalCount && totalCount > 0;
@@ -237,7 +237,7 @@ function HackathonAssignmentCard({ data, isPast }) {
         'h-full hover:shadow-md transition-all duration-300 group',
         isPast ? 'opacity-75' : 'hover:border-secondary/50'
       )}>
-        <CardContent className="p-5">
+        <CardContent className="p-5 pt-4">
           {/* Header */}
           <div className="flex items-start justify-between gap-3 mb-4">
             <div className="flex items-center gap-3">
@@ -281,7 +281,7 @@ function HackathonAssignmentCard({ data, isPast }) {
               </span>
             </div>
             <div className="h-2 bg-muted rounded-full overflow-hidden">
-              <div 
+              <div
                 className={cn(
                   'h-full rounded-full transition-all',
                   isComplete ? 'bg-success' : 'bg-secondary'

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { 
+import {
   ArrowLeft,
   Trophy,
   Users,
@@ -22,18 +22,19 @@ import {
   FileCode,
   Eye
 } from 'lucide-react';
-import { 
-  Button, 
-  Badge, 
-  LoadingScreen, 
+import {
+  Button,
+  Badge,
+  LoadingScreen,
   ErrorState,
   Alert,
-  Textarea
+  Textarea,
+  ScoringModal
 } from '../../components/ui';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui';
-import { 
-  getCriteria, 
-  getAssignedSubmissions, 
+import {
+  getCriteria,
+  getAssignedSubmissions,
   getMyHackathonEvaluations,
   saveEvaluation,
   submitEvaluation,
@@ -49,7 +50,7 @@ import useAuthStore from '../../store/authStore';
 const getAssetIcon = (asset) => {
   const category = asset.category || '';
   const mimeType = asset.mimeType || '';
-  
+
   if (category === 'image' || mimeType.startsWith('image/')) return Image;
   if (category === 'video' || mimeType.startsWith('video/')) return Video;
   if (category === 'audio' || mimeType.startsWith('audio/')) return Music;
@@ -84,14 +85,14 @@ function EvaluationPage() {
   const { hackathonId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  
+
   const [hackathon, setHackathon] = useState(null);
   const [criteria, setCriteria] = useState(null);
   const [submissions, setSubmissions] = useState([]);
   const [evaluations, setEvaluations] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   // Active submission for evaluation
   const [activeSubmission, setActiveSubmission] = useState(null);
   const [isLoadingSubmission, setIsLoadingSubmission] = useState(false);
@@ -99,6 +100,7 @@ function EvaluationPage() {
   const [comments, setComments] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState(null);
+  const [isScoringOpen, setIsScoringOpen] = useState(false);
 
   // Function to select and load full submission details
   const selectSubmission = async (submission) => {
@@ -106,7 +108,7 @@ function EvaluationPage() {
       setActiveSubmission(null);
       return;
     }
-    
+
     setIsLoadingSubmission(true);
     try {
       // Fetch full submission details with populated assets
@@ -130,7 +132,7 @@ function EvaluationPage() {
       // Fetch hackathon details
       const hackathonData = await getHackathonById(hackathonId);
       setHackathon(hackathonData.hackathon);
-      
+
       // Fetch criteria
       try {
         const criteriaData = await getCriteria(hackathonId);
@@ -139,12 +141,12 @@ function EvaluationPage() {
         // Criteria might not be set yet
         setCriteria(null);
       }
-      
+
       // Fetch assigned submissions
       try {
         const submissionsData = await getAssignedSubmissions(hackathonId);
         console.log('Assigned submissions response:', submissionsData);
-        
+
         // API returns { submissions: [{ submission, evaluated, evaluation }], stats }
         // We need to extract the actual submission objects and merge evaluation info
         const subs = (submissionsData.submissions || []).map(item => {
@@ -158,7 +160,7 @@ function EvaluationPage() {
           };
         });
         setSubmissions(subs);
-        
+
         // Also populate evaluations from the response
         const evalMap = {};
         (submissionsData.submissions || []).forEach(item => {
@@ -174,7 +176,7 @@ function EvaluationPage() {
         console.error('Failed to fetch assigned submissions:', err);
         setSubmissions([]);
       }
-      
+
       // Fetch my evaluations
       try {
         const evaluationsData = await getMyHackathonEvaluations(hackathonId);
@@ -204,13 +206,13 @@ function EvaluationPage() {
       const existingEval = evaluations[activeSubmission._id];
       const newScores = {};
       const newComments = {};
-      
+
       criteria.items.forEach(item => {
         const existingScore = existingEval?.scores?.find(s => s.key === item.key);
         newScores[item.key] = existingScore?.score ?? '';
         newComments[item.key] = existingScore?.comment ?? '';
       });
-      
+
       setScores(newScores);
       setComments(newComments);
     }
@@ -224,31 +226,31 @@ function EvaluationPage() {
 
   const handleSave = async (status = 'draft') => {
     if (!activeSubmission || !criteria) return;
-    
+
     setIsSaving(true);
     setSaveMessage(null);
-    
+
     try {
       const scoreData = criteria.items.map(item => ({
         key: item.key,
         score: scores[item.key] || 0,
         comment: comments[item.key] || ''
       }));
-      
+
       const result = await saveEvaluation({
         submissionId: activeSubmission._id,
         scores: scoreData,
         status
       });
-      
+
       // Update local evaluations
       setEvaluations(prev => ({
         ...prev,
         [activeSubmission._id]: result.evaluation
       }));
-      
+
       setSaveMessage({ type: 'success', text: status === 'submitted' ? 'Evaluation submitted!' : 'Evaluation saved as draft' });
-      
+
       // If submitted, go back to list
       if (status === 'submitted') {
         setTimeout(() => setActiveSubmission(null), 1500);
@@ -266,8 +268,8 @@ function EvaluationPage() {
 
   if (error) {
     return (
-      <ErrorState 
-        title="Failed to load" 
+      <ErrorState
+        title="Failed to load"
         description={error}
         onRetry={fetchData}
       />
@@ -285,10 +287,10 @@ function EvaluationPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 safe-container">
       {/* Back Button */}
-      <Button 
-        variant="ghost" 
+      <Button
+        variant="ghost"
         onClick={() => activeSubmission ? selectSubmission(null) : navigate('/my/evaluations')}
         className="gap-2"
       >
@@ -303,7 +305,7 @@ function EvaluationPage() {
             {hackathon?.title || 'Hackathon'} - Evaluation
           </h1>
           <p className="text-muted-foreground mt-1">
-            {activeSubmission 
+            {activeSubmission
               ? `Evaluating: ${getTeamName(activeSubmission)}`
               : 'Review and score assigned submissions'
             }
@@ -351,9 +353,9 @@ function EvaluationPage() {
                 const evaluation = evaluations[submission._id];
                 const statusConfig = getEvaluationStatus(evaluation);
                 const score = evaluation ? calculateTotalScore(evaluation.scores, criteria) : null;
-                
+
                 return (
-                  <Card 
+                  <Card
                     key={submission._id || submission.id}
                     className="hover:shadow-md hover:border-secondary/50 transition-all cursor-pointer group"
                     onClick={() => selectSubmission(submission)}
@@ -408,60 +410,64 @@ function EvaluationPage() {
         </div>
       ) : (
         // Evaluation Form
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="grid lg:grid-cols-3 gap-6 w-full overflow-hidden min-w-0">
           {/* Submission Details */}
-          <div className="lg:col-span-1 space-y-4">
+          <div className="lg:col-span-1 space-y-4 min-w-0 overflow-hidden">
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Submission Details</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 overflow-hidden">
                 <div>
                   <p className="text-sm text-muted-foreground">Team</p>
-                  <p className="font-medium">{getTeamName(activeSubmission)}</p>
+                  <p className="font-medium break-words">{getTeamName(activeSubmission)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Title</p>
-                  <p className="font-medium">{getSubmissionTitle(activeSubmission)}</p>
+                  <p className="font-medium break-words">{getSubmissionTitle(activeSubmission)}</p>
                 </div>
                 {activeSubmission.description && (
                   <div>
                     <p className="text-sm text-muted-foreground">Description</p>
-                    <p className="text-sm">{activeSubmission.description}</p>
+                    <p className="text-sm break-words">{activeSubmission.description}</p>
                   </div>
                 )}
-                {activeSubmission.demoUrl && (
-                  <a 
-                    href={activeSubmission.demoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-secondary hover:underline"
-                  >
-                    <ExternalLink size={14} />
-                    View Demo
-                  </a>
-                )}
-                {activeSubmission.repoUrl && (
-                  <a 
-                    href={activeSubmission.repoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-secondary hover:underline"
-                  >
-                    <ExternalLink size={14} />
-                    View Repository
-                  </a>
-                )}
-                {activeSubmission.videoUrl && (
-                  <a 
-                    href={activeSubmission.videoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-secondary hover:underline"
-                  >
-                    <ExternalLink size={14} />
-                    View Video
-                  </a>
+                {(activeSubmission.demoUrl || activeSubmission.repoUrl || activeSubmission.videoUrl) && (
+                  <div className="flex flex-wrap gap-y-2 gap-x-4">
+                    {activeSubmission.demoUrl && (
+                      <a
+                        href={activeSubmission.demoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-secondary hover:underline whitespace-nowrap text-sm"
+                      >
+                        <ExternalLink size={14} />
+                        View Demo
+                      </a>
+                    )}
+                    {activeSubmission.repoUrl && (
+                      <a
+                        href={activeSubmission.repoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-secondary hover:underline whitespace-nowrap text-sm"
+                      >
+                        <ExternalLink size={14} />
+                        View Repository
+                      </a>
+                    )}
+                    {activeSubmission.videoUrl && (
+                      <a
+                        href={activeSubmission.videoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-secondary hover:underline whitespace-nowrap text-sm"
+                      >
+                        <ExternalLink size={14} />
+                        View Video
+                      </a>
+                    )}
+                  </div>
                 )}
 
                 {/* Submission Assets */}
@@ -470,26 +476,26 @@ function EvaluationPage() {
                     <p className="text-sm text-muted-foreground mb-3">
                       Attached Files ({activeSubmission.assets.length})
                     </p>
-                    <div className="space-y-2">
+                    <div className="space-y-2 min-w-0">
                       {activeSubmission.assets.map((asset, index) => {
                         const AssetIcon = getAssetIcon(asset);
                         const canPreview = isPreviewable(asset);
                         const assetUrl = asset.storageUrl || asset.url || '';
                         const fileName = asset.filename || asset.name || `File ${index + 1}`;
-                        const fileSize = asset.sizeFormatted || 
+                        const fileSize = asset.sizeFormatted ||
                           (asset.sizeBytes ? `${(asset.sizeBytes / 1024).toFixed(1)} KB` : 'Unknown size');
-                        
+
                         return (
-                          <div 
+                          <div
                             key={asset._id || asset.id || index}
-                            className="flex items-center gap-3 p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                            className="flex items-center gap-3 p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors min-w-0 overflow-hidden"
                           >
                             <div className={cn(
                               "w-8 h-8 rounded flex items-center justify-center flex-shrink-0",
                               asset.category === 'image' ? 'bg-blue-500/10 text-blue-500' :
-                              asset.category === 'video' ? 'bg-purple-500/10 text-purple-500' :
-                              asset.category === 'document' ? 'bg-red-500/10 text-red-500' :
-                              'bg-gray-500/10 text-gray-500'
+                                asset.category === 'video' ? 'bg-purple-500/10 text-purple-500' :
+                                  asset.category === 'document' ? 'bg-red-500/10 text-red-500' :
+                                    'bg-gray-500/10 text-gray-500'
                             )}>
                               <AssetIcon size={16} />
                             </div>
@@ -554,95 +560,56 @@ function EvaluationPage() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Mobile Score Button */}
+            <div className="lg:hidden pt-4">
+              <Button
+                onClick={() => setIsScoringOpen(true)}
+                className="w-full h-14 rounded-xl text-lg font-bold bg-secondary hover:bg-secondary-hover text-white flex items-center justify-center gap-2"
+              >
+                <Star size={20} />
+                Score Submission
+              </Button>
+            </div>
           </div>
 
-          {/* Scoring Form */}
-          <div className="lg:col-span-2 space-y-4">
+          {/* Scoring Form - Desktop View */}
+          <div className="hidden lg:block lg:col-span-2">
             {saveMessage && (
-              <Alert variant={saveMessage.type === 'error' ? 'error' : 'success'}>
+              <Alert variant={saveMessage.type === 'error' ? 'error' : 'success'} className="mb-4">
                 <span>{saveMessage.text}</span>
               </Alert>
             )}
 
-            {criteria?.items?.map(item => (
-              <Card key={item.key}>
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <h3 className="font-medium text-foreground">{item.label}</h3>
-                      <p className="text-sm text-muted-foreground">{item.description}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Weight: {item.weight}x • Max: {item.maxScore}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        min="0"
-                        max={item.maxScore}
-                        value={scores[item.key] ?? ''}
-                        onChange={(e) => handleScoreChange(item.key, e.target.value)}
-                        className="w-20 h-10 text-center text-lg font-bold border border-border rounded-lg bg-primary focus:ring-2 focus:ring-secondary focus:border-secondary outline-none"
-                        placeholder="0"
-                      />
-                      <span className="text-muted-foreground">/ {item.maxScore}</span>
-                    </div>
-                  </div>
-                  
-                  {/* Score Slider */}
-                  <div className="mb-4">
-                    <input
-                      type="range"
-                      min="0"
-                      max={item.maxScore}
-                      value={scores[item.key] || 0}
-                      onChange={(e) => handleScoreChange(item.key, e.target.value)}
-                      className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-secondary"
-                    />
-                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                      <span>0</span>
-                      <span>{item.maxScore}</span>
-                    </div>
-                  </div>
-
-                  {/* Comment */}
-                  <div>
-                    <label className="text-sm text-muted-foreground flex items-center gap-1 mb-2">
-                      <MessageSquare size={14} />
-                      Comment (optional)
-                    </label>
-                    <Textarea
-                      value={comments[item.key] || ''}
-                      onChange={(e) => setComments(prev => ({ ...prev, [item.key]: e.target.value }))}
-                      placeholder={`Add feedback for ${item.label.toLowerCase()}...`}
-                      rows={2}
-                      className="resize-none"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 pt-4">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => handleSave('draft')}
-                disabled={isSaving || !criteria}
-              >
-                <Save size={18} />
-                {isSaving ? 'Saving...' : 'Save as Draft'}
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={() => handleSave('submitted')}
-                disabled={isSaving || !criteria}
-              >
-                <Send size={18} />
-                {isSaving ? 'Submitting...' : 'Submit Evaluation'}
-              </Button>
+            <div className="bg-card rounded-2xl border border-border overflow-hidden">
+              <ScoringModal
+                isOpen={true}
+                projectName={getTeamName(activeSubmission)}
+                criteria={criteria?.items || []}
+                scores={scores}
+                onScoreChange={(key, score) => setScores(prev => ({ ...prev, [key]: score }))}
+                onSave={handleSave}
+                isSubmitting={isSaving}
+              />
             </div>
+          </div>
+
+          {/* Mobile Scoring Sheet */}
+          <div className="lg:hidden">
+            <ScoringModal
+              isOpen={isScoringOpen}
+              onClose={() => setIsScoringOpen(false)}
+              projectName={getTeamName(activeSubmission)}
+              criteria={criteria?.items || []}
+              scores={scores}
+              onScoreChange={(key, score) => setScores(prev => ({ ...prev, [key]: score }))}
+              onSave={async (status) => {
+                await handleSave(status);
+                if (status === 'submitted') setIsScoringOpen(false);
+              }}
+              isSubmitting={isSaving}
+              isMobile={true}
+            />
           </div>
         </div>
       )}
