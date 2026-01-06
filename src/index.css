@@ -5,13 +5,13 @@
   /* Primary - White */
   --color-primary: #ffffff;
   --color-primary-foreground: #1a1a1a;
-  
+
   /* Secondary/Accent - Orange */
   --color-secondary: rgba(255, 111, 16, 1);
   --color-secondary-light: rgba(255, 111, 16, 0.1);
   --color-secondary-hover: rgba(230, 100, 14, 1);
   --color-secondary-foreground: #ffffff;
-  
+
   /* Neutral colors */
   --color-background: #ffffff;
   --color-foreground: #1a1a1a;
@@ -20,13 +20,13 @@
   --color-border: #e5e5e5;
   --color-input: #e5e5e5;
   --color-ring: rgba(255, 111, 16, 0.5);
-  
+
   /* Status colors */
   --color-success: #22c55e;
   --color-warning: #eab308;
   --color-error: #ef4444;
   --color-info: #3b82f6;
-  
+
   /* Card */
   --color-card: #ffffff;
   --color-card-foreground: #1a1a1a;
@@ -35,8 +35,8 @@
 /* Base styles */
 * {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+  /* margin: 0;
+  padding: 0; */
 }
 
 html {

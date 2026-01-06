@@ -84,7 +84,7 @@ function DashboardPage() {
       {/* Welcome Section */}
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-          Welcome back, {user?.name?.split(' ')[0]}! 👋
+          Welcome back, {user?.name?.split(' ')[0]}!
         </h1>
         <p className="mt-2 text-muted-foreground">
           Here's an overview of your hackathon activities.
@@ -153,7 +153,7 @@ function DashboardPage() {
           Dashboard Coming Soon
         </h3>
         <p className="text-muted-foreground max-w-md mx-auto">
-          We're building an amazing dashboard experience for you. 
+          We're building an amazing dashboard experience for you.
           Stay tuned for detailed analytics, activity feeds, and more!
         </p>
       </div>
@@ -184,17 +184,15 @@ function QuickActionCard({ title, description, icon: Icon, onClick, highlight })
   return (
     <button
       onClick={onClick}
-      className={`flex items-start gap-4 p-4 rounded-lg border transition-all text-left group ${
-        highlight 
-          ? 'border-secondary bg-secondary/5 hover:bg-secondary/10' 
+      className={`flex items-start gap-4 p-4 rounded-lg border transition-all text-left group ${highlight
+          ? 'border-secondary bg-secondary/5 hover:bg-secondary/10'
           : 'border-border hover:border-secondary hover:bg-secondary/5'
-      }`}
+        }`}
     >
-      <div className={`p-2 rounded-lg transition-colors ${
-        highlight 
-          ? 'bg-secondary/20 group-hover:bg-secondary/30' 
+      <div className={`p-2 rounded-lg transition-colors ${highlight
+          ? 'bg-secondary/20 group-hover:bg-secondary/30'
           : 'bg-secondary/10 group-hover:bg-secondary/20'
-      }`}>
+        }`}>
         <Icon size={20} className="text-secondary" />
       </div>
       <div>
