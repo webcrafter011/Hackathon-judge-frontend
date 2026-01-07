@@ -11,3 +11,5 @@ export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 export { Spinner, LoadingScreen } from './Spinner';
 export { EmptyState, ErrorState } from './EmptyState';
 export { default as ScoringModal } from './ScoringModal';
+export { default as UserProfileLink } from './UserProfileLink';
+export { default as WinnerCelebrationModal } from './WinnerCelebrationModal';

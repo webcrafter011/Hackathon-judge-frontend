@@ -115,8 +115,16 @@ export const getHackathonTeams = async (hackathonId, page = 1) => {
 // Check if user is team leader
 export const isTeamLeader = (team, userId) => {
   if (!team || !userId) return false;
+
+  // Check leaderId field if present
   const leaderId = team.leaderId?._id || team.leaderId;
-  return leaderId === userId;
+  if (leaderId && leaderId === userId) return true;
+
+  // Fallback: Check members array for role: "leader"
+  return team.members?.some(m => {
+    const memberId = m.userId?._id || m.userId;
+    return memberId === userId && m.role === 'leader';
+  }) || false;
 };
 
 // Check if user is team member

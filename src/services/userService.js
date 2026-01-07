@@ -13,7 +13,7 @@ export const getUsers = async (params = {}) => {
   return response.data;
 };
 
-// Get user by ID
+// Get user by ID (Public/Private)
 export const getUserById = async (userId) => {
   const response = await api.get(`/users/${userId}`);
   return response.data;
@@ -21,16 +21,16 @@ export const getUserById = async (userId) => {
 
 // Search users by role (for assigning judges)
 export const getUsersByRole = async (role, params = {}) => {
-  const response = await api.get('/users', { 
-    params: { ...params, role } 
+  const response = await api.get('/users', {
+    params: { ...params, role }
   });
   return response.data;
 };
 
 // Search users
 export const searchUsers = async (query, params = {}) => {
-  const response = await api.get('/users', { 
-    params: { ...params, q: query } 
+  const response = await api.get('/users', {
+    params: { ...params, q: query }
   });
   return response.data;
 };

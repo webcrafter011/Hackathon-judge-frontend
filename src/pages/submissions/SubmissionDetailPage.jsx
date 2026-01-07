@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
+import {
   ArrowLeft,
   Trophy,
   Users,
@@ -13,11 +13,12 @@ import {
   Image,
   Download
 } from 'lucide-react';
-import { 
-  Button, 
-  Badge, 
-  LoadingScreen, 
-  ErrorState
+import {
+  Button,
+  Badge,
+  LoadingScreen,
+  ErrorState,
+  UserProfileLink
 } from '../../components/ui';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui';
 import { getSubmissionById, getSubmissionStatus } from '../../services/submissionService';
@@ -28,7 +29,7 @@ function SubmissionDetailPage() {
   const { submissionId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  
+
   const [submission, setSubmission] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -55,8 +56,8 @@ function SubmissionDetailPage() {
 
   if (error || !submission) {
     return (
-      <ErrorState 
-        title="Submission not found" 
+      <ErrorState
+        title="Submission not found"
         description={error || "The submission you're looking for doesn't exist."}
         onRetry={() => navigate('/my/submissions')}
       />
@@ -70,8 +71,8 @@ function SubmissionDetailPage() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Back Button */}
-      <Button 
-        variant="ghost" 
+      <Button
+        variant="ghost"
         onClick={() => navigate(-1)}
         className="gap-2"
       >
@@ -225,7 +226,7 @@ function SubmissionDetailPage() {
                     </p>
                   </div>
                 </div>
-                
+
                 {/* Team Members */}
                 {team.members && team.members.length > 0 && (
                   <div className="space-y-2">
@@ -233,21 +234,21 @@ function SubmissionDetailPage() {
                     <div className="space-y-2">
                       {team.members.map((member) => (
                         <div key={member._id || member} className="flex items-center gap-2">
-                          <div className="w-6 h-6 bg-muted rounded-full flex items-center justify-center text-xs font-medium">
-                            {(member.userId?.name || member.name || 'U')[0].toUpperCase()}
-                          </div>
-                          <span className="text-sm text-foreground">
-                            {member.userId?.name || member.name || 'Team Member'}
-                          </span>
+                          <UserProfileLink
+                            userId={member.userId?._id || member.userId}
+                            name={member.userId?.name || member.name}
+                            avatar={member.userId?.avatar || member.avatar}
+                            size="sm"
+                          />
                           {member.role === 'leader' && (
-                            <Badge variant="outline" className="text-xs">Leader</Badge>
+                            <Badge variant="outline" className="text-[10px] h-4">Leader</Badge>
                           )}
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
-                
+
                 <Button
                   variant="outline"
                   className="w-full mt-4"
@@ -271,7 +272,7 @@ function SubmissionDetailPage() {
                   {statusConfig.icon} {statusConfig.label}
                 </Badge>
               </div>
-              
+
               {submission.submittedAt && (
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Submitted</p>
@@ -280,7 +281,7 @@ function SubmissionDetailPage() {
                   </p>
                 </div>
               )}
-              
+
               {submission.updatedAt && (
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Last Updated</p>
@@ -307,14 +308,14 @@ function SubmissionDetailPage() {
                     <p className="font-medium text-foreground">{hackathon.title}</p>
                   </div>
                 </div>
-                
+
                 {hackathon.endAt && (
                   <p className="text-sm text-muted-foreground flex items-center gap-1">
                     <Calendar size={14} />
                     Ended: {formatDate(hackathon.endAt)}
                   </p>
                 )}
-                
+
                 <Button
                   variant="outline"
                   className="w-full mt-4"

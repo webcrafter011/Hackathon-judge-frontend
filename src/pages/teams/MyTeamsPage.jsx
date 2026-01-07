@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { 
-  Users, 
-  Trophy, 
-  Crown, 
+import {
+  Users,
+  Trophy,
+  Crown,
   Calendar,
   ArrowRight,
   Plus,
@@ -14,29 +14,30 @@ import {
   XCircle,
   Search
 } from 'lucide-react';
-import { 
-  Button, 
-  Badge, 
-  LoadingScreen, 
+import {
+  Button,
+  Badge,
+  LoadingScreen,
   EmptyState,
   ErrorState,
   Input
 } from '../../components/ui';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui';
-import { getMyTeams, getMyJoinRequests, cancelJoinRequest, getRequestStatusDisplay } from '../../services/teamService';
+import { getMyTeams, getMyJoinRequests, cancelJoinRequest, getRequestStatusDisplay, isTeamLeader, getTeamJoinRequests } from '../../services/teamService';
 import { formatDate, cn } from '../../lib/utils';
 import useAuthStore from '../../store/authStore';
 
 function MyTeamsPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  
+
   const [teams, setTeams] = useState([]);
   const [joinRequests, setJoinRequests] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [cancellingId, setCancellingId] = useState(null);
+  const [pendingCounts, setPendingCounts] = useState({});
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -48,6 +49,22 @@ function MyTeamsPage() {
       ]);
       setTeams(teamsResponse.teams || []);
       setJoinRequests(requestsResponse.requests || []);
+
+      // Fetch pending requests for teams leaded by user
+      const leadedTeams = (teamsResponse.teams || []).filter(team => isTeamLeader(team, user?._id));
+      if (leadedTeams.length > 0) {
+        const counts = {};
+        await Promise.all(leadedTeams.map(async (team) => {
+          try {
+            const data = await getTeamJoinRequests(team._id, 'pending');
+            counts[team._id] = data.requests?.length || 0;
+          } catch (err) {
+            console.error(`Failed to fetch requests for team ${team._id}:`, err);
+            counts[team._id] = 0;
+          }
+        }));
+        setPendingCounts(counts);
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load teams');
     } finally {
@@ -61,7 +78,7 @@ function MyTeamsPage() {
 
   const handleCancelRequest = async (requestId) => {
     if (!window.confirm('Are you sure you want to cancel this join request?')) return;
-    
+
     setCancellingId(requestId);
     try {
       await cancelJoinRequest(requestId);
@@ -74,10 +91,14 @@ function MyTeamsPage() {
   };
 
   // Filter teams by search
-  const filteredTeams = teams.filter(team => 
+  const filteredTeams = teams.filter(team =>
     team.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     team.hackathonId?.title?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Group teams by role
+  const leadedTeams = filteredTeams.filter(team => isTeamLeader(team, user?._id));
+  const participantTeams = filteredTeams.filter(team => !isTeamLeader(team, user?._id));
 
   // Pending requests
   const pendingRequests = joinRequests.filter(r => r.status === 'pending');
@@ -88,8 +109,8 @@ function MyTeamsPage() {
 
   if (error) {
     return (
-      <ErrorState 
-        title="Failed to load teams" 
+      <ErrorState
+        title="Failed to load teams"
         message={error}
         action={fetchData}
         actionLabel="Try Again"
@@ -124,7 +145,7 @@ function MyTeamsPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {pendingRequests.map((request) => (
-              <div 
+              <div
                 key={request._id}
                 className="flex items-center justify-between gap-4 p-3 bg-primary rounded-lg border border-border"
               >
@@ -175,13 +196,13 @@ function MyTeamsPage() {
         </div>
       )}
 
-      {/* Teams List */}
+      {/* Teams Sections */}
       {filteredTeams.length === 0 ? (
         <EmptyState
           icon={Users}
           title={searchQuery ? 'No teams found' : 'No teams yet'}
           description={
-            searchQuery 
+            searchQuery
               ? 'Try a different search term'
               : "You haven't joined any teams yet. Browse hackathons to find one!"
           }
@@ -189,10 +210,52 @@ function MyTeamsPage() {
           actionLabel={!searchQuery ? 'Browse Hackathons' : undefined}
         />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredTeams.map((team) => (
-            <TeamCard key={team._id} team={team} userId={user?._id} />
-          ))}
+        <div className="space-y-8">
+          {/* Leaded Teams */}
+          {leadedTeams.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <Crown size={20} className="text-secondary" />
+                  Teams Led by Me
+                  <Badge variant="outline" className="ml-2">{leadedTeams.length}</Badge>
+                </h2>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {leadedTeams.map((team) => (
+                  <TeamCard
+                    key={team._id}
+                    team={team}
+                    userId={user?._id}
+                    pendingCount={pendingCounts[team._id] || 0}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Participating Teams */}
+          {participantTeams.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <Users size={20} className="text-muted-foreground" />
+                  Participating Teams
+                  <Badge variant="outline" className="ml-2">{participantTeams.length}</Badge>
+                </h2>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {participantTeams.map((team) => (
+                  <TeamCard
+                    key={team._id}
+                    team={team}
+                    userId={user?._id}
+                    pendingCount={0}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -210,7 +273,7 @@ function MyTeamsPage() {
                 .map((request) => {
                   const statusInfo = getRequestStatusDisplay(request.status);
                   return (
-                    <div 
+                    <div
                       key={request._id}
                       className="flex items-center justify-between gap-4 p-3 rounded-lg bg-muted/50"
                     >
@@ -238,7 +301,7 @@ function MyTeamsPage() {
   );
 }
 
-function TeamCard({ team, userId }) {
+function TeamCard({ team, userId, pendingCount }) {
   const isLeader = team.leaderId?._id === userId || team.leaderId === userId;
   const hackathon = team.hackathonId;
   const memberCount = team.members?.length || 0;
@@ -265,6 +328,16 @@ function TeamCard({ team, userId }) {
                 )}
               </div>
             </div>
+            {pendingCount > 0 && (
+              <div className="relative">
+                <div className="absolute -top-1 -right-1 flex h-4 w-4">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-error opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-4 w-4 bg-error text-[10px] text-white items-center justify-center font-bold">
+                    {pendingCount}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Hackathon Info */}

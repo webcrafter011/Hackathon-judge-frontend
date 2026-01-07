@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { 
-  Users, 
-  Trophy, 
-  Crown, 
-  Mail, 
+import {
+  Users,
+  Trophy,
+  Crown,
+  Mail,
   Calendar,
   ArrowLeft,
   Edit,
@@ -20,22 +20,23 @@ import {
   AlertTriangle,
   Shield
 } from 'lucide-react';
-import { 
-  Button, 
-  Badge, 
-  LoadingScreen, 
+import {
+  Button,
+  Badge,
+  LoadingScreen,
   ErrorState,
   Alert,
   Input,
-  Textarea
+  Textarea,
+  UserProfileLink
 } from '../../components/ui';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui';
-import { 
-  getTeamById, 
+import {
+  getTeamById,
   updateTeam,
   deleteTeam,
-  leaveTeam, 
-  removeMember, 
+  leaveTeam,
+  removeMember,
   transferLeadership,
   getTeamJoinRequests,
   approveJoinRequest,
@@ -52,13 +53,13 @@ function TeamDetailPage() {
   const { teamId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  
+
   const [team, setTeam] = useState(null);
   const [joinRequests, setJoinRequests] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('members');
-  
+
   // Action states
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', contactEmail: '' });
@@ -138,12 +139,12 @@ function TeamDetailPage() {
   };
 
   const handleLeaveTeam = async () => {
-    const message = isLeader 
+    const message = isLeader
       ? 'As the leader, leaving will transfer leadership to another member or delete the team if you are the only member. Continue?'
       : 'Are you sure you want to leave this team?';
-    
+
     if (!window.confirm(message)) return;
-    
+
     setActionLoading('leave');
     try {
       await leaveTeam(teamId);
@@ -156,7 +157,7 @@ function TeamDetailPage() {
 
   const handleRemoveMember = async (memberId, memberName) => {
     if (!window.confirm(`Remove ${memberName} from the team?`)) return;
-    
+
     setActionLoading(`remove-${memberId}`);
     try {
       await removeMember(teamId, memberId);
@@ -213,8 +214,8 @@ function TeamDetailPage() {
 
   if (error || !team) {
     return (
-      <ErrorState 
-        title="Team not found" 
+      <ErrorState
+        title="Team not found"
         message={error || "The team you're looking for doesn't exist."}
         action={() => navigate('/my/teams')}
         actionLabel="Back to My Teams"
@@ -235,8 +236,8 @@ function TeamDetailPage() {
   return (
     <div className="space-y-6">
       {/* Back Button */}
-      <Button 
-        variant="ghost" 
+      <Button
+        variant="ghost"
         onClick={() => navigate('/my/teams')}
         className="gap-2"
       >
@@ -318,8 +319,8 @@ function TeamDetailPage() {
                   </Button>
                 )}
                 {isMember && (
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={handleLeaveTeam}
                     disabled={actionLoading === 'leave'}
                   >
@@ -334,7 +335,7 @@ function TeamDetailPage() {
           {/* Hackathon Info */}
           {hackathon && (
             <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-              <Link 
+              <Link
                 to={`/hackathons/${hackathon._id}`}
                 className="flex items-center gap-3 hover:text-secondary transition-colors"
               >
@@ -384,7 +385,7 @@ function TeamDetailPage() {
 
       {/* Tab Content */}
       {activeTab === 'members' && (
-        <MembersTab 
+        <MembersTab
           members={members}
           leaderId={leaderId}
           currentUserId={user?._id}
@@ -396,7 +397,7 @@ function TeamDetailPage() {
       )}
 
       {activeTab === 'requests' && canManage && (
-        <JoinRequestsTab 
+        <JoinRequestsTab
           requests={joinRequests}
           onApprove={handleApproveRequest}
           onReject={handleRejectRequest}
@@ -407,7 +408,7 @@ function TeamDetailPage() {
       )}
 
       {activeTab === 'settings' && canManage && (
-        <SettingsTab 
+        <SettingsTab
           team={team}
           onDelete={handleDeleteTeam}
           actionLoading={actionLoading}
@@ -447,11 +448,11 @@ function MembersTab({ members, leaderId, currentUserId, canManage, onRemoveMembe
           {members.map((member) => {
             const memberUser = member.userId || member;
             const memberId = memberUser._id || memberUser;
-            const memberIsLeader = memberId === leaderId;
+            const memberIsLeader = member.role === 'leader' || memberId === leaderId;
             const isCurrentUser = memberId === currentUserId;
 
             return (
-              <div 
+              <div
                 key={memberId}
                 className="flex items-center justify-between gap-4 p-4 rounded-lg bg-muted/50"
               >
@@ -463,11 +464,14 @@ function MembersTab({ members, leaderId, currentUserId, canManage, onRemoveMembe
                       <Users size={18} className="text-muted-foreground" />
                     )}
                   </div>
-                  <div>
-                    <p className="font-medium text-foreground">
-                      {memberUser.name || 'Unknown'}
-                      {isCurrentUser && <span className="text-muted-foreground ml-2">(You)</span>}
-                    </p>
+                  <div className="flex-1 min-w-0">
+                    <UserProfileLink
+                      userId={memberId}
+                      name={memberUser.name}
+                      avatar={memberUser.avatar}
+                      showAvatar={false}
+                      className="font-medium"
+                    />
                     <p className="text-sm text-muted-foreground">{memberUser.email}</p>
                   </div>
                 </div>
@@ -524,7 +528,7 @@ function JoinRequestsTab({ requests, onApprove, onReject, actionLoading, teamCon
           <span>Team is full ({currentMemberCount}/{maxSize} members). You cannot approve more requests.</span>
         </Alert>
       )}
-      
+
       <Card>
         <CardContent className="p-0">
           <div className="divide-y divide-border">
@@ -537,8 +541,13 @@ function JoinRequestsTab({ requests, onApprove, onReject, actionLoading, teamCon
                       <div className="w-10 h-10 bg-secondary/10 rounded-full flex items-center justify-center shrink-0">
                         <Users size={18} className="text-secondary" />
                       </div>
-                      <div>
-                        <p className="font-medium text-foreground">{requestUser?.name || 'Unknown'}</p>
+                      <div className="flex-1 min-w-0">
+                        <UserProfileLink
+                          userId={requestUser?._id}
+                          name={requestUser?.name}
+                          avatar={requestUser?.avatar}
+                          showAvatar={false}
+                        />
                         <p className="text-sm text-muted-foreground">{requestUser?.email}</p>
                         {request.message && (
                           <p className="text-sm text-muted-foreground mt-2 p-2 bg-muted rounded">
@@ -620,7 +629,7 @@ function SettingsTab({ team, onDelete, actionLoading, isLeader, isAdmin }) {
 
 function TransferLeadershipModal({ members, leaderId, onTransfer, onClose, actionLoading }) {
   const [selected, setSelected] = useState(null);
-  
+
   const eligibleMembers = members.filter(m => {
     const memberId = m.userId?._id || m.userId;
     return memberId !== leaderId;
@@ -673,7 +682,7 @@ function TransferLeadershipModal({ members, leaderId, onTransfer, onClose, actio
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={() => selected && onTransfer(selected)}
               disabled={!selected || actionLoading === 'transfer'}
             >

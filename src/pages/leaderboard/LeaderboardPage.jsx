@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { 
+import confetti from 'canvas-confetti';
+import {
   Trophy,
   Medal,
   Award,
@@ -14,16 +15,18 @@ import {
   Crown,
   Zap
 } from 'lucide-react';
-import { 
-  Button, 
-  Badge, 
+import {
+  Button,
+  Badge,
   LoadingScreen,
   EmptyState,
-  ErrorState 
+  ErrorState,
+  WinnerCelebrationModal
 } from '../../components/ui';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui';
 import { getHackathonById, getStatusConfig } from '../../services/hackathonService';
 import { getLeaderboard } from '../../services/evaluationService';
+import { getTeamById, isTeamMember } from '../../services/teamService';
 import { formatDate, cn } from '../../lib/utils';
 import useAuthStore from '../../store/authStore';
 
@@ -94,7 +97,7 @@ function TopThreeCard({ entry, rank }) {
     2: 'col-span-full md:col-span-1 md:order-1',
     3: 'col-span-full md:col-span-1 md:order-3'
   };
-  
+
   const heights = {
     1: 'h-full',
     2: 'h-[95%] self-end',
@@ -106,7 +109,7 @@ function TopThreeCard({ entry, rank }) {
   const submissionId = getSubmissionId(entry);
 
   return (
-    <Card 
+    <Card
       className={cn(
         "relative overflow-hidden transition-all duration-300 hover:shadow-lg cursor-pointer group",
         sizes[rank],
@@ -170,7 +173,7 @@ function LeaderboardRow({ entry, rank }) {
   const submissionId = getSubmissionId(entry);
 
   return (
-    <tr 
+    <tr
       className="border-b border-border hover:bg-muted/50 transition-colors cursor-pointer group"
       onClick={() => submissionId && navigate(`/submissions/${submissionId}`)}
     >
@@ -230,22 +233,53 @@ function LeaderboardPage() {
   const { hackathonId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  
+
   const [hackathon, setHackathon] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Winner celebration state
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [winnerInfo, setWinnerInfo] = useState(null);
+
+  // Trigger confetti animation
+  const triggerConfetti = useCallback(() => {
+    const duration = 2000;
+    const end = Date.now() + duration;
+
+    const frame = () => {
+      confetti({
+        particleCount: 3,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0 },
+        colors: ['#FFD700', '#FFA500', '#FF6347']
+      });
+      confetti({
+        particleCount: 3,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1 },
+        colors: ['#FFD700', '#FFA500', '#FF6347']
+      });
+
+      if (Date.now() < end) {
+        requestAnimationFrame(frame);
+      }
+    };
+
+    frame();
+  }, []);
+
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      // Fetch hackathon details
       const hackathonData = await getHackathonById(hackathonId);
       setHackathon(hackathonData.hackathon);
-      
-      // Fetch leaderboard
+
       const leaderboardData = await getLeaderboard(hackathonId);
       setLeaderboard(leaderboardData.leaderboard || []);
     } catch (err) {
@@ -258,6 +292,72 @@ function LeaderboardPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Check for winner and trigger celebration
+  useEffect(() => {
+    const checkWinnerAndCelebrate = async () => {
+      if (!user || isLoading || leaderboard.length === 0) return;
+
+      const celebrationKey = `celebration_shown_${hackathonId}`;
+      const hasSeenCelebration = sessionStorage.getItem(celebrationKey);
+
+      if (hasSeenCelebration) return;
+
+      const topThree = leaderboard.slice(0, 3);
+      const prizes = hackathon?.prizes || [];
+
+      for (let i = 0; i < topThree.length; i++) {
+        const entry = topThree[i];
+        const rank = entry.rank || i + 1;
+
+        const teamId = entry.submission?.team?._id || entry.team?._id;
+        const teamName = entry.submission?.team?.name || entry.team?.name || getTeamName(entry);
+
+        if (!teamId) continue;
+
+        try {
+          const teamData = await getTeamById(teamId);
+          const team = teamData.team;
+
+          const userId = user._id || user.id;
+          const isMember = isTeamMember(team, userId);
+
+          if (isMember) {
+            const prize = prizes.find(p => p.rank === rank) || prizes[rank - 1];
+
+            setTimeout(() => {
+              setWinnerInfo({
+                rank,
+                title: prize?.title || `${rank === 1 ? '1st' : rank === 2 ? '2nd' : '3rd'} Place`,
+                value: prize?.value || '',
+                description: prize?.description || '',
+                teamName
+              });
+              setShowCelebration(true);
+              triggerConfetti();
+              sessionStorage.setItem(celebrationKey, 'true');
+            }, 500);
+
+            return;
+          }
+        } catch (err) {
+          // Silent fail for team fetch errors
+        }
+      }
+    };
+
+    checkWinnerAndCelebrate();
+  }, [isLoading, leaderboard, hackathon, user, hackathonId, triggerConfetti]);
+
+  const handleCloseCelebration = () => {
+    setShowCelebration(false);
+    // Extra confetti burst on close
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 }
+    });
+  };
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -277,7 +377,7 @@ function LeaderboardPage() {
 
   if (error) {
     return (
-      <ErrorState 
+      <ErrorState
         title="Failed to load leaderboard"
         description={error}
         onRetry={fetchData}
@@ -287,19 +387,19 @@ function LeaderboardPage() {
 
   // Only show leaderboard for closed or archived hackathons
   const isLeaderboardAvailable = hackathon?.status === 'closed' || hackathon?.status === 'archived';
-  
+
   if (hackathon && !isLeaderboardAvailable) {
     return (
       <div className="space-y-6">
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           onClick={() => navigate(`/hackathons/${hackathonId}`)}
           className="gap-2"
         >
           <ArrowLeft size={18} />
           Back to Hackathon
         </Button>
-        
+
         <EmptyState
           icon={Trophy}
           title="Leaderboard Not Available Yet"
@@ -316,8 +416,8 @@ function LeaderboardPage() {
   return (
     <div className="space-y-6">
       {/* Back Button */}
-      <Button 
-        variant="ghost" 
+      <Button
+        variant="ghost"
         onClick={() => navigate(`/hackathons/${hackathonId}`)}
         className="gap-2"
       >
@@ -336,7 +436,7 @@ function LeaderboardPage() {
           </div>
           {hackathon && (
             <div className="flex items-center gap-2">
-              <Link 
+              <Link
                 to={`/hackathons/${hackathonId}`}
                 className="text-muted-foreground hover:text-secondary transition-colors"
               >
@@ -350,9 +450,9 @@ function LeaderboardPage() {
             </div>
           )}
         </div>
-        
-        <Button 
-          variant="outline" 
+
+        <Button
+          variant="outline"
           onClick={handleRefresh}
           disabled={isRefreshing}
           className="gap-2"
@@ -375,10 +475,10 @@ function LeaderboardPage() {
           {topThree.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
               {topThree.map((entry, index) => (
-                <TopThreeCard 
-                  key={entry.submission?._id || entry.team?._id || index} 
-                  entry={entry} 
-                  rank={entry.rank || index + 1} 
+                <TopThreeCard
+                  key={entry.submission?._id || entry.team?._id || index}
+                  entry={entry}
+                  rank={entry.rank || index + 1}
                 />
               ))}
             </div>
@@ -406,7 +506,7 @@ function LeaderboardPage() {
                 </div>
                 <div>
                   <div className="text-2xl font-bold text-foreground">
-                    {leaderboard.length > 0 
+                    {leaderboard.length > 0
                       ? (leaderboard.reduce((sum, e) => sum + (e.avgScore || 0), 0) / leaderboard.length).toFixed(1)
                       : '-'
                     }
@@ -448,10 +548,10 @@ function LeaderboardPage() {
                     </thead>
                     <tbody>
                       {rest.map((entry, index) => (
-                        <LeaderboardRow 
-                          key={entry.submission?._id || entry.team?._id || index + 3} 
-                          entry={entry} 
-                          rank={entry.rank || index + 4} 
+                        <LeaderboardRow
+                          key={entry.submission?._id || entry.team?._id || index + 3}
+                          entry={entry}
+                          rank={entry.rank || index + 4}
                         />
                       ))}
                     </tbody>
@@ -492,10 +592,10 @@ function LeaderboardPage() {
                     </thead>
                     <tbody>
                       {topThree.map((entry, index) => (
-                        <LeaderboardRow 
-                          key={entry.submission?._id || entry.team?._id || index} 
-                          entry={entry} 
-                          rank={entry.rank || index + 1} 
+                        <LeaderboardRow
+                          key={entry.submission?._id || entry.team?._id || index}
+                          entry={entry}
+                          rank={entry.rank || index + 1}
                         />
                       ))}
                     </tbody>
@@ -506,6 +606,14 @@ function LeaderboardPage() {
           )}
         </>
       )}
+
+      {/* Winner Celebration Modal */}
+      <WinnerCelebrationModal
+        isOpen={showCelebration}
+        onClose={handleCloseCelebration}
+        prizeInfo={winnerInfo}
+        teamName={winnerInfo?.teamName || 'Your Team'}
+      />
     </div>
   );
 }
