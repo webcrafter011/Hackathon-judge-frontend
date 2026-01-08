@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import ScrollToTop from './components/ScrollToTop';
 import AuthLayout from './components/layouts/AuthLayout';
 import MainLayout from './components/layouts/MainLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -39,6 +40,7 @@ import { UserProfilePage } from './pages/users';
 function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <Routes>
         {/* Public Routes - Auth Layout */}
         <Route element={<AuthLayout />}>
