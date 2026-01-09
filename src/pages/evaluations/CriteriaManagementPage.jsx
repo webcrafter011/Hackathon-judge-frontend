@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { 
+import {
   ArrowLeft,
   Plus,
   Trash2,
@@ -13,8 +13,8 @@ import {
   Scale,
   Info
 } from 'lucide-react';
-import { 
-  Button, 
+import {
+  Button,
   Input,
   Label,
   Textarea,
@@ -68,7 +68,7 @@ function CriteriaManagementPage() {
   const { hackathonId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  
+
   const [hackathon, setHackathon] = useState(null);
   const [existingCriteria, setExistingCriteria] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -106,9 +106,9 @@ function CriteriaManagementPage() {
         getHackathonById(hackathonId),
         getCriteria(hackathonId).catch(() => null),
       ]);
-      
+
       setHackathon(hackathonData.hackathon);
-      
+
       if (criteriaData?.criteria?.items?.length > 0) {
         setExistingCriteria(criteriaData.criteria);
         reset({ items: criteriaData.criteria.items });
@@ -140,11 +140,11 @@ function CriteriaManagementPage() {
   const onSubmit = async (data) => {
     setIsSaving(true);
     setSaveMessage(null);
-    
+
     try {
       await setCriteria(hackathonId, data.items);
       setSaveMessage({ type: 'success', text: 'Criteria saved successfully!' });
-      
+
       // Refresh to get updated data
       const criteriaData = await getCriteria(hackathonId);
       if (criteriaData?.criteria) {
@@ -181,8 +181,8 @@ function CriteriaManagementPage() {
 
   if (error) {
     return (
-      <ErrorState 
-        title="Failed to load" 
+      <ErrorState
+        title="Failed to load"
         description={error}
         onRetry={fetchData}
       />
@@ -191,8 +191,8 @@ function CriteriaManagementPage() {
 
   if (!canManage) {
     return (
-      <ErrorState 
-        title="Access Denied" 
+      <ErrorState
+        title="Access Denied"
         description="You don't have permission to manage criteria for this hackathon."
         onRetry={() => navigate(`/hackathons/${hackathonId}`)}
       />
@@ -202,8 +202,8 @@ function CriteriaManagementPage() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Back Button */}
-      <Button 
-        variant="ghost" 
+      <Button
+        variant="ghost"
         onClick={() => navigate(`/hackathons/${hackathonId}`)}
         className="gap-2"
       >
@@ -219,7 +219,7 @@ function CriteriaManagementPage() {
             {hackathon?.title || 'Hackathon'}
           </p>
         </div>
-        <Badge className="bg-secondary/10 text-secondary">
+        <Badge className="bg-secondary/10 text-secondary py-2 w-35 text-center justify-center">
           <Scale size={14} className="mr-1" />
           Total Weight: {totalWeight.toFixed(1)}
         </Badge>

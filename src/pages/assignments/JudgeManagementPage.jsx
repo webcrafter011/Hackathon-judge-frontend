@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
+import {
   ArrowLeft,
   Users,
   UserPlus,
@@ -13,18 +13,18 @@ import {
   Loader2,
   RefreshCw
 } from 'lucide-react';
-import { 
-  Button, 
-  Badge, 
+import {
+  Button,
+  Badge,
   Input,
-  LoadingScreen, 
+  LoadingScreen,
   ErrorState,
   EmptyState,
   Alert
 } from '../../components/ui';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui';
 import { getHackathonById, assignJudges } from '../../services/hackathonService';
-import { getUsers, getRoleDisplay } from '../../services/userService';
+import { getUsersByRole, getRoleDisplay } from '../../services/userService';
 import { cn } from '../../lib/utils';
 import useAuthStore from '../../store/authStore';
 
@@ -32,20 +32,20 @@ function JudgeManagementPage() {
   const { hackathonId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  
+
   const [hackathon, setHackathon] = useState(null);
   const [allUsers, setAllUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState(null);
-  
+
   // Selected judges (IDs)
   const [selectedJudges, setSelectedJudges] = useState([]);
-  
+
   // Search
   const [searchQuery, setSearchQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState('all'); // all, judge, organizer, participant
+  const [roleFilter, setRoleFilter] = useState('judge'); // all, judge, organizer, participant
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -53,12 +53,12 @@ function JudgeManagementPage() {
     try {
       const [hackathonData, usersData] = await Promise.all([
         getHackathonById(hackathonId),
-        getUsers({ limit: 100 })
+        getUsersByRole('judge', { limit: 100 })
       ]);
-      
+
       setHackathon(hackathonData.hackathon);
       setAllUsers(usersData.users || []);
-      
+
       // Initialize selected judges from hackathon data
       const currentJudges = hackathonData.hackathon.judges || [];
       setSelectedJudges(currentJudges.map(j => j._id || j));
@@ -90,22 +90,22 @@ function JudgeManagementPage() {
   const filteredUsers = allUsers.filter(u => {
     // Don't show the organizer themselves
     if (u._id === (hackathon?.organizerId?._id || hackathon?.organizerId)) return false;
-    
+
     // Search filter
-    const matchesSearch = !searchQuery || 
+    const matchesSearch = !searchQuery ||
       u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       u.email?.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     // Role filter
     const matchesRole = roleFilter === 'all' || u.role === roleFilter;
-    
+
     return matchesSearch && matchesRole;
   });
 
   // Toggle judge selection
   const toggleJudge = (userId) => {
-    setSelectedJudges(prev => 
-      prev.includes(userId) 
+    setSelectedJudges(prev =>
+      prev.includes(userId)
         ? prev.filter(id => id !== userId)
         : [...prev, userId]
     );
@@ -115,11 +115,11 @@ function JudgeManagementPage() {
   const handleSave = async () => {
     setIsSaving(true);
     setSaveMessage(null);
-    
+
     try {
       await assignJudges(hackathonId, selectedJudges);
       setSaveMessage({ type: 'success', text: 'Judges updated successfully!' });
-      
+
       // Refresh hackathon data
       const hackathonData = await getHackathonById(hackathonId);
       setHackathon(hackathonData.hackathon);
@@ -140,8 +140,8 @@ function JudgeManagementPage() {
 
   if (error) {
     return (
-      <ErrorState 
-        title="Failed to load" 
+      <ErrorState
+        title="Failed to load"
         description={error}
         onRetry={fetchData}
       />
@@ -150,8 +150,8 @@ function JudgeManagementPage() {
 
   if (!canManage) {
     return (
-      <ErrorState 
-        title="Access Denied" 
+      <ErrorState
+        title="Access Denied"
         description="You don't have permission to manage judges for this hackathon."
         onRetry={() => navigate(`/hackathons/${hackathonId}`)}
       />
@@ -159,10 +159,10 @@ function JudgeManagementPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-hidden">
       {/* Back Button */}
-      <Button 
-        variant="ghost" 
+      <Button
+        variant="ghost"
         onClick={() => navigate(`/hackathons/${hackathonId}/assignments`)}
         className="gap-2"
       >
@@ -178,7 +178,7 @@ function JudgeManagementPage() {
             {hackathon?.title || 'Hackathon'}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Badge className="bg-secondary/10 text-secondary">
             <Users size={14} className="mr-1" />
             {selectedJudges.length} judges selected
@@ -186,29 +186,32 @@ function JudgeManagementPage() {
           <Button
             onClick={handleSave}
             disabled={isSaving}
+            className="gap-1"
           >
             {isSaving ? (
               <>
                 <Loader2 size={18} className="animate-spin" />
-                Saving...
+                <span className="hidden sm:inline">Saving...</span>
               </>
             ) : (
               <>
                 <CheckCircle size={18} />
-                Save Changes
+                <span className="hidden sm:inline">Save Changes</span>
               </>
             )}
           </Button>
         </div>
       </div>
 
-      {saveMessage && (
-        <Alert variant={saveMessage.type === 'error' ? 'error' : 'success'}>
-          <span>{saveMessage.text}</span>
-        </Alert>
-      )}
+      {
+        saveMessage && (
+          <Alert variant={saveMessage.type === 'error' ? 'error' : 'success'}>
+            <span>{saveMessage.text}</span>
+          </Alert>
+        )
+      }
 
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid lg:grid-cols-2 gap-6 overflow-hidden">
         {/* Current Judges */}
         <Card>
           <CardHeader>
@@ -240,23 +243,23 @@ function JudgeManagementPage() {
                   return (
                     <div
                       key={judge._id}
-                      className="flex items-center justify-between p-3 bg-secondary/5 rounded-lg border border-secondary/20"
+                      className="flex flex-wrap items-center justify-between gap-2 p-3 bg-secondary/5 rounded-lg border border-secondary/20"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-secondary/10 rounded-full flex items-center justify-center">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-10 h-10 bg-secondary/10 rounded-full flex-shrink-0 flex items-center justify-center">
                           <span className="font-medium text-secondary">
                             {judge.name?.[0]?.toUpperCase() || 'U'}
                           </span>
                         </div>
-                        <div>
-                          <p className="font-medium text-foreground">{judge.name}</p>
-                          <p className="text-sm text-muted-foreground flex items-center gap-1">
-                            <Mail size={12} />
-                            {judge.email}
+                        <div className="min-w-0">
+                          <p className="font-medium text-foreground truncate">{judge.name}</p>
+                          <p className="text-sm text-muted-foreground flex items-center gap-1 truncate">
+                            <Mail size={12} className="flex-shrink-0" />
+                            <span className="truncate">{judge.email}</span>
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-shrink-0">
                         <Badge className={roleConfig.color} variant="outline">
                           {roleConfig.label}
                         </Badge>
@@ -361,12 +364,12 @@ function JudgeManagementPage() {
         <div>
           <p className="font-medium">About Judge Assignment</p>
           <p className="text-sm text-muted-foreground mt-1">
-            Judges assigned here will have access to evaluate submissions for this hackathon. 
+            Judges assigned here will have access to evaluate submissions for this hackathon.
             After adding judges, you can assign them to specific teams in the Assignment Management page.
           </p>
         </div>
       </Alert>
-    </div>
+    </div >
   );
 }
 

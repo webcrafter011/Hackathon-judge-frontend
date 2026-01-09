@@ -1,11 +1,85 @@
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 import { Button } from '../../components/ui';
 import { Trophy, Users, FileText, BarChart3, Plus, Settings, Scale, UserCheck } from 'lucide-react';
+import { getMyTeams } from '../../services/teamService';
+import { getHackathons } from '../../services/hackathonService';
+import { getMyAssignments } from '../../services/assignmentService';
 
 function DashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+
+  // Dashboard stats state
+  const [stats, setStats] = useState({
+    hackathons: 0,
+    teams: 0,
+    submissions: 0,
+    evaluations: 0
+  });
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+
+  // Fetch dashboard stats
+  const fetchStats = useCallback(async () => {
+    if (!user) return;
+
+    setIsLoadingStats(true);
+    try {
+      // Fetch teams count and submissions count
+      const teamsResponse = await getMyTeams();
+      const myTeams = teamsResponse?.teams || [];
+      const teamsCount = myTeams.length;
+
+      // Count submissions from teams that have submitted
+      const submissionsCount = myTeams.filter(team => team.hasSubmitted || team.submission).length;
+
+      // Fetch active hackathons count
+      const hackathonsResponse = await getHackathons({ status: 'open', limit: 100 });
+      const activeHackathons = hackathonsResponse?.hackathons || [];
+      const hackathonsCount = activeHackathons.length;
+
+      // For judges/admins, fetch pending evaluations count
+      let evaluationsCount = 0;
+      if (user.role === 'judge' || user.role === 'admin') {
+        try {
+          // Get all hackathons and check for assignments
+          const allHackathonsResponse = await getHackathons({ limit: 100 });
+          const allHackathons = allHackathonsResponse?.hackathons || [];
+
+          for (const hackathon of allHackathons) {
+            try {
+              const assignmentData = await getMyAssignments(hackathon._id);
+              if (assignmentData?.stats) {
+                const assigned = assignmentData.stats.assigned || 0;
+                const evaluated = assignmentData.stats.evaluated || 0;
+                evaluationsCount += Math.max(0, assigned - evaluated);
+              }
+            } catch (e) {
+              // Not assigned to this hackathon - skip
+            }
+          }
+        } catch (e) {
+          console.warn('Could not fetch evaluations:', e);
+        }
+      }
+
+      setStats({
+        hackathons: hackathonsCount,
+        teams: teamsCount,
+        submissions: submissionsCount,
+        evaluations: evaluationsCount
+      });
+    } catch (error) {
+      console.error('Failed to fetch dashboard stats:', error);
+    } finally {
+      setIsLoadingStats(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   const getRoleDisplay = (role) => {
     const roleConfig = {
@@ -96,34 +170,38 @@ function DashboardPage() {
         <StatCard
           icon={Trophy}
           label="Hackathons"
-          value="0"
+          value={stats.hackathons}
           description="Active hackathons"
           color="text-secondary"
           bgColor="bg-secondary/10"
+          isLoading={isLoadingStats}
         />
         <StatCard
           icon={Users}
           label="Teams"
-          value="0"
+          value={stats.teams}
           description="Your teams"
           color="text-info"
           bgColor="bg-info/10"
+          isLoading={isLoadingStats}
         />
         <StatCard
           icon={FileText}
           label="Submissions"
-          value="0"
+          value={stats.submissions}
           description="Total submissions"
           color="text-success"
           bgColor="bg-success/10"
+          isLoading={isLoadingStats}
         />
         <StatCard
           icon={BarChart3}
           label="Evaluations"
-          value="0"
+          value={stats.evaluations}
           description="Pending reviews"
           color="text-warning"
           bgColor="bg-warning/10"
+          isLoading={isLoadingStats}
         />
       </div>
 
@@ -162,13 +240,17 @@ function DashboardPage() {
 }
 
 // Stat Card Component
-function StatCard({ icon: Icon, label, value, description, color, bgColor }) {
+function StatCard({ icon: Icon, label, value, description, color, bgColor, isLoading }) {
   return (
     <div className="bg-primary rounded-xl border border-border p-5 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm text-muted-foreground">{label}</p>
-          <p className="text-3xl font-bold text-foreground mt-1">{value}</p>
+          {isLoading ? (
+            <div className="h-9 w-16 mt-1 bg-muted rounded-md animate-pulse" />
+          ) : (
+            <p className="text-3xl font-bold text-foreground mt-1">{value}</p>
+          )}
           <p className="text-xs text-muted-foreground mt-1">{description}</p>
         </div>
         <div className={`p-3 rounded-lg ${bgColor}`}>
@@ -185,13 +267,13 @@ function QuickActionCard({ title, description, icon: Icon, onClick, highlight })
     <button
       onClick={onClick}
       className={`flex items-start gap-4 p-4 rounded-lg border transition-all text-left group ${highlight
-          ? 'border-secondary bg-secondary/5 hover:bg-secondary/10'
-          : 'border-border hover:border-secondary hover:bg-secondary/5'
+        ? 'border-secondary bg-secondary/5 hover:bg-secondary/10'
+        : 'border-border hover:border-secondary hover:bg-secondary/5'
         }`}
     >
       <div className={`p-2 rounded-lg transition-colors ${highlight
-          ? 'bg-secondary/20 group-hover:bg-secondary/30'
-          : 'bg-secondary/10 group-hover:bg-secondary/20'
+        ? 'bg-secondary/20 group-hover:bg-secondary/30'
+        : 'bg-secondary/10 group-hover:bg-secondary/20'
         }`}>
         <Icon size={20} className="text-secondary" />
       </div>

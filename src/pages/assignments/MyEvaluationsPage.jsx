@@ -53,8 +53,8 @@ function MyEvaluationsPage() {
               hackathon,
               assignment: assignmentData.assignment,
               teams: assignmentData.teams || assignmentData.assignment?.teamIds || [],
-              evaluatedCount: assignmentData.evaluatedCount || 0,
-              totalCount: assignmentData.totalCount || assignmentData.teams?.length || assignmentData.assignment?.teamIds?.length || 0
+              evaluatedCount: assignmentData.stats?.evaluated || 0,
+              totalCount: assignmentData.stats?.assigned || assignmentData.teams?.length || assignmentData.assignment?.teamIds?.length || 0
             };
           }
           return null;

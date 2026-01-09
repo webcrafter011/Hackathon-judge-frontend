@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { 
-  Users, 
-  Trophy, 
+import {
+  Users,
+  Trophy,
   ArrowLeft,
   UserCheck,
   UserPlus,
@@ -22,10 +22,10 @@ import {
   RefreshCw,
   Settings
 } from 'lucide-react';
-import { 
-  Button, 
-  Badge, 
-  LoadingScreen, 
+import {
+  Button,
+  Badge,
+  LoadingScreen,
   ErrorState,
   EmptyState,
   Alert,
@@ -33,8 +33,8 @@ import {
   Select
 } from '../../components/ui';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui';
-import { 
-  getAssignments, 
+import {
+  getAssignments,
   assignJudge,
   autoAssignJudges,
   updateJudgeTeams,
@@ -51,20 +51,21 @@ function AssignmentManagementPage() {
   const { hackathonId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  
+
   const [hackathon, setHackathon] = useState(null);
   const [assignments, setAssignments] = useState([]);
   const [teams, setTeams] = useState([]);
   const [workload, setWorkload] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   // UI State
   const [activeTab, setActiveTab] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedJudge, setSelectedJudge] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
+  const [judgesPerTeamInput, setJudgesPerTeamInput] = useState(2);
 
   // Permissions - handle multiple ID formats
   const userId = user?.id || user?._id;
@@ -89,7 +90,7 @@ function AssignmentManagementPage() {
         getHackathonTeams(hackathonId).catch(() => ({ teams: [] })),
         getWorkloadSummary(hackathonId).catch(() => null)
       ]);
-      
+
       setHackathon(hackathonData.hackathon);
       setAssignments(assignmentsData.assignments || []);
       setTeams(teamsData.teams || []);
@@ -109,7 +110,7 @@ function AssignmentManagementPage() {
     if (!window.confirm(`Auto-assign judges with ${judgesPerTeam} judge(s) per team? This will reassign all judges.`)) {
       return;
     }
-    
+
     setActionLoading('auto-assign');
     try {
       await autoAssignJudges(hackathonId, judgesPerTeam);
@@ -123,7 +124,7 @@ function AssignmentManagementPage() {
 
   const handleRemoveAssignment = async (judgeId, judgeName) => {
     if (!window.confirm(`Remove all assignments for ${judgeName}?`)) return;
-    
+
     setActionLoading(`remove-${judgeId}`);
     try {
       await removeJudgeAssignment(hackathonId, judgeId);
@@ -153,8 +154,8 @@ function AssignmentManagementPage() {
 
   if (error) {
     return (
-      <ErrorState 
-        title="Failed to load assignments" 
+      <ErrorState
+        title="Failed to load assignments"
         message={error}
         action={fetchData}
         actionLabel="Try Again"
@@ -164,8 +165,8 @@ function AssignmentManagementPage() {
 
   if (!hackathon) {
     return (
-      <ErrorState 
-        title="Hackathon not found" 
+      <ErrorState
+        title="Hackathon not found"
         message="The hackathon you're looking for doesn't exist."
         action={() => navigate('/my/hackathons')}
         actionLabel="Back to My Hackathons"
@@ -175,8 +176,8 @@ function AssignmentManagementPage() {
 
   if (!canManage) {
     return (
-      <ErrorState 
-        title="Access Denied" 
+      <ErrorState
+        title="Access Denied"
         message="You don't have permission to manage assignments for this hackathon."
         action={() => navigate(`/hackathons/${hackathonId}`)}
         actionLabel="View Hackathon"
@@ -194,10 +195,10 @@ function AssignmentManagementPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-hidden">
       {/* Back Button */}
-      <Button 
-        variant="ghost" 
+      <Button
+        variant="ghost"
         onClick={() => navigate(`/hackathons/${hackathonId}`)}
         className="gap-2"
       >
@@ -213,23 +214,24 @@ function AssignmentManagementPage() {
             Manage judge assignments for <span className="text-secondary">{hackathon.title}</span>
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={fetchData}>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={fetchData} className="gap-1">
             <RefreshCw size={16} />
-            Refresh
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
           <Link to={`/hackathons/${hackathonId}/judges`}>
-            <Button variant="outline">
+            <Button variant="outline" className="gap-1">
               <Users size={16} />
-              Manage Judges
+              <span className="hidden sm:inline">Manage Judges</span>
             </Button>
           </Link>
-          <Button 
+          <Button
             onClick={() => setShowAssignModal(true)}
             disabled={judges.length === 0}
+            className="gap-1"
           >
             <UserPlus size={16} />
-            Assign Judge
+            <span className="hidden sm:inline">Assign Judge</span>
           </Button>
         </div>
       </div>
@@ -258,78 +260,111 @@ function AssignmentManagementPage() {
       )}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard 
-          label="Total Judges" 
-          value={stats.totalJudges} 
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard
+          label="Total Judges"
+          value={stats.totalJudges}
           icon={UserCheck}
         />
-        <StatCard 
-          label="Total Teams" 
-          value={stats.totalTeams} 
+        <StatCard
+          label="Total Teams"
+          value={stats.totalTeams}
           icon={Users}
         />
-        <StatCard 
-          label="Teams Assigned" 
+        <StatCard
+          label="Teams Assigned"
           value={stats.teamsAssigned}
           subtext={stats.teamsUnassigned > 0 ? `${stats.teamsUnassigned} unassigned` : 'All assigned'}
           variant={stats.teamsUnassigned > 0 ? 'warning' : 'success'}
           icon={CheckCircle}
         />
-        <StatCard 
-          label="Avg. Workload" 
+        <StatCard
+          label="Avg. Workload"
           value={`${stats.avgWorkload} teams/judge`}
           icon={BarChart3}
         />
       </div>
 
-      {/* Quick Actions */}
+      {/* Assignment Strategy */}
       {judges.length > 0 && teams.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Shuffle size={18} className="text-secondary" />
-              Quick Actions
+              Assignment Strategy
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-3">
-              <Button 
-                variant="outline"
-                onClick={() => handleAutoAssign(1)}
+          <CardContent className="space-y-4">
+            {/* Custom Assignment */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+                  Judges per team:
+                </label>
+                <div className="flex items-center border border-border rounded-lg overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setJudgesPerTeamInput(prev => Math.max(1, prev - 1))}
+                    className="px-3 py-2 hover:bg-muted transition-colors disabled:opacity-50"
+                    disabled={judgesPerTeamInput <= 1 || actionLoading === 'auto-assign'}
+                  >
+                    <Minus size={16} />
+                  </button>
+                  <input
+                    type="number"
+                    min="1"
+                    max="10"
+                    value={judgesPerTeamInput}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value) || 1;
+                      setJudgesPerTeamInput(Math.min(10, Math.max(1, val)));
+                    }}
+                    className="w-12 text-center py-2 bg-transparent border-x border-border text-foreground focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setJudgesPerTeamInput(prev => Math.min(10, prev + 1))}
+                    className="px-3 py-2 hover:bg-muted transition-colors disabled:opacity-50"
+                    disabled={judgesPerTeamInput >= 10 || actionLoading === 'auto-assign'}
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+              </div>
+              <Button
+                onClick={() => handleAutoAssign(judgesPerTeamInput)}
                 disabled={actionLoading === 'auto-assign'}
+                className="gap-2"
               >
                 {actionLoading === 'auto-assign' ? (
                   <Loader2 size={16} className="animate-spin" />
                 ) : (
                   <Shuffle size={16} />
                 )}
-                Auto-Assign (1 per team)
+                Auto-Assign
               </Button>
-              <Button 
-                variant="outline"
-                onClick={() => handleAutoAssign(2)}
-                disabled={actionLoading === 'auto-assign'}
-              >
-                {actionLoading === 'auto-assign' ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <Shuffle size={16} />
-                )}
-                Auto-Assign (2 per team)
-              </Button>
-              <Button 
-                variant="outline"
-                onClick={() => handleAutoAssign(3)}
-                disabled={actionLoading === 'auto-assign'}
-              >
-                {actionLoading === 'auto-assign' ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <Shuffle size={16} />
-                )}
-                Auto-Assign (3 per team)
-              </Button>
+            </div>
+
+            {/* Quick Presets */}
+            <div className="pt-3 border-t border-border">
+              <p className="text-xs text-muted-foreground mb-2">Quick presets:</p>
+              <div className="flex flex-wrap gap-2">
+                {[1, 2, 3, 4, 5].map((num) => (
+                  <Button
+                    key={num}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setJudgesPerTeamInput(num);
+                      handleAutoAssign(num);
+                    }}
+                    disabled={actionLoading === 'auto-assign'}
+                    className="min-w-[60px]"
+                  >
+                    {num} {num === 1 ? 'judge' : 'judges'}
+                  </Button>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -366,7 +401,7 @@ function AssignmentManagementPage() {
 
       {/* Tab Content */}
       {activeTab === 'overview' && (
-        <OverviewTab 
+        <OverviewTab
           stats={stats}
           workload={workload}
           judges={judges}
@@ -375,7 +410,7 @@ function AssignmentManagementPage() {
       )}
 
       {activeTab === 'judges' && (
-        <JudgesTab 
+        <JudgesTab
           assignments={assignments}
           judges={judges}
           teams={teams}
@@ -389,7 +424,7 @@ function AssignmentManagementPage() {
       )}
 
       {activeTab === 'teams' && (
-        <TeamsTab 
+        <TeamsTab
           assignments={assignments}
           teams={teams}
           judges={judges}
@@ -422,10 +457,10 @@ function StatCard({ label, value, subtext, icon: Icon, variant }) {
   return (
     <Card>
       <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">{label}</p>
-            <p className="text-2xl font-bold text-foreground mt-1">{value}</p>
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide truncate">{label}</p>
+            <p className="text-2xl font-bold text-foreground mt-1 truncate">{value}</p>
             {subtext && (
               <p className={cn(
                 'text-xs mt-1',
@@ -470,7 +505,7 @@ function OverviewTab({ stats, workload, judges, teams }) {
                       <span className="text-muted-foreground">{item.teamCount} teams</span>
                     </div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div 
+                      <div
                         className="h-full bg-secondary rounded-full transition-all"
                         style={{ width: `${Math.min(percentage, 100)}%` }}
                       />
@@ -503,13 +538,13 @@ function OverviewTab({ stats, workload, judges, teams }) {
               {teams
                 .filter(team => {
                   // Check if team has any assignment
-                  const isAssigned = stats.judgeWorkload.some(jw => 
+                  const isAssigned = stats.judgeWorkload.some(jw =>
                     jw.teams.some(t => (t._id || t) === team._id)
                   );
                   return !isAssigned;
                 })
                 .map(team => (
-                  <div 
+                  <div
                     key={team._id}
                     className="flex items-center gap-3 p-2 rounded-lg bg-muted/50"
                   >
@@ -586,7 +621,7 @@ function JudgesTab({ assignments, judges, teams, hackathonId, onRemove, onUpdate
             return (
               <Card key={judge._id}>
                 <CardContent className="p-4">
-                  <div 
+                  <div
                     className="flex items-center justify-between cursor-pointer"
                     onClick={() => setExpandedJudge(isExpanded ? null : judge._id)}
                   >
@@ -635,7 +670,7 @@ function JudgesTab({ assignments, judges, teams, hackathonId, onRemove, onUpdate
                           {assignedTeams.map(team => {
                             const teamData = typeof team === 'object' ? team : teams.find(t => t._id === team);
                             return (
-                              <div 
+                              <div
                                 key={teamData?._id || team}
                                 className="flex items-center justify-between p-2 rounded-lg bg-muted/50"
                               >
@@ -819,8 +854,8 @@ function AssignJudgeModal({ hackathonId, judges, teams, assignments, onClose, on
   };
 
   const toggleTeam = (teamId) => {
-    setSelectedTeams(prev => 
-      prev.includes(teamId) 
+    setSelectedTeams(prev =>
+      prev.includes(teamId)
         ? prev.filter(id => id !== teamId)
         : [...prev, teamId]
     );
@@ -918,7 +953,7 @@ function AssignJudgeModal({ hackathonId, judges, teams, assignments, onClose, on
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button 
+          <Button
             onClick={handleSubmit}
             disabled={isLoading || !selectedJudge || selectedTeams.length === 0}
           >
